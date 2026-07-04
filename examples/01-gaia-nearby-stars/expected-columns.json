@@ -1,0 +1,12 @@
+[
+  "source_id",
+  "ra",
+  "dec",
+  "parallax",
+  "parallax_error",
+  "pmra",
+  "pmdec",
+  "phot_g_mean_mag",
+  "bp_rp",
+  "ruwe"
+]

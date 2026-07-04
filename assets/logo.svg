@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Starfetch logo</title>
+  <desc id="desc">A four-point star beside structured table rows.</desc>
+  <rect width="512" height="512" rx="96" fill="#30258a" />
+  <path
+    fill="#ffffff"
+    d="M139 76c9 45 22 64 68 73-46 9-59 28-68 73-9-45-22-64-68-73 46-9 59-28 68-73Z"
+  />
+  <g fill="#76e4c4">
+    <rect x="169" y="206" width="58" height="58" rx="10" />
+    <rect x="169" y="289" width="58" height="58" rx="10" />
+    <rect x="169" y="372" width="58" height="58" rx="10" />
+  </g>
+  <g fill="#ffffff">
+    <rect x="254" y="206" width="178" height="58" rx="10" />
+    <rect x="254" y="289" width="178" height="58" rx="10" />
+    <rect x="254" y="372" width="178" height="58" rx="10" />
+  </g>
+</svg>

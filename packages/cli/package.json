@@ -1,0 +1,58 @@
+{
+  "name": "@starfetch-js/cli",
+  "version": "0.1.1",
+  "description": "Command-line interface for Starfetch.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "astronomy",
+    "tap",
+    "adql",
+    "cli",
+    "virtual-observatory"
+  ],
+  "homepage": "https://github.com/starfetch-js/starfetch#readme",
+  "bugs": {
+    "url": "https://github.com/starfetch-js/starfetch/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/starfetch-js/starfetch.git",
+    "directory": "packages/cli"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "starfetch": "dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsdown --config ../../tsdown.config.ts",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@starfetch-js/core": "0.1.1",
+    "@starfetch-js/skill": "0.1.1",
+    "commander": "15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.21",
+    "tsdown": "0.21.10",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

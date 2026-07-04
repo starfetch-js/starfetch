@@ -1,0 +1,53 @@
+{
+  "name": "@starfetch-js/core",
+  "version": "0.1.1",
+  "description": "Core TAP querying primitives for Starfetch.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "astronomy",
+    "tap",
+    "adql",
+    "votable",
+    "virtual-observatory"
+  ],
+  "homepage": "https://github.com/starfetch-js/starfetch#readme",
+  "bugs": {
+    "url": "https://github.com/starfetch-js/starfetch/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/starfetch-js/starfetch.git",
+    "directory": "packages/core"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsdown --config ../../tsdown.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsdown": "0.21.10",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "csv-parse": "7.0.1",
+    "saxes": "6.0.0"
+  }
+}

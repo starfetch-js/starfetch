@@ -1,0 +1,10 @@
+[
+  "source_id",
+  "ra",
+  "dec",
+  "pmra",
+  "pmdec",
+  "total_pm",
+  "phot_g_mean_mag",
+  "bp_rp"
+]

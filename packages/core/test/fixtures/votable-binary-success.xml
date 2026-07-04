@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.5" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK">Successful query</INFO>
+    <TABLE name="binary_result">
+      <FIELD name="source_id" datatype="long" />
+      <FIELD name="ra" datatype="double" />
+      <FIELD name="flag" datatype="char" arraysize="4" />
+      <FIELD name="quality" datatype="short">
+        <VALUES null="99" />
+      </FIELD>
+      <DATA>
+        <BINARY>
+          <STREAM encoding="base64">
+            AAAAAAAAA+lAKQAAAAAAAG9rAAAABQAAAAAAAAPqQCsAAAAAAABiYWQhAGM=
+          </STREAM>
+        </BINARY>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>

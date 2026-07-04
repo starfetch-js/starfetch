@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "ignoreDeprecations": "6.0",
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@starfetch-js/core": ["packages/core/src/index.ts"],
+      "@starfetch-js/skill": ["packages/skill/src/index.ts"]
+    }
+  },
+  "include": [
+    "examples/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "eslint.config.js",
+    "tsdown.config.ts",
+    "vitest.config.ts"
+  ]
+}

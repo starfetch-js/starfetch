@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uws:job xmlns:uws="http://www.ivoa.net/xml/UWS/v1.0" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1">
+  <uws:jobId>job-123</uws:jobId>
+  <uws:phase>ERROR</uws:phase>
+  <uws:creationTime>2026-06-19T10:00:00Z</uws:creationTime>
+  <uws:startTime>2026-06-19T10:00:05Z</uws:startTime>
+  <uws:endTime>2026-06-19T10:00:06Z</uws:endTime>
+  <uws:executionDuration>3600</uws:executionDuration>
+  <uws:destruction>2026-06-20T10:00:00Z</uws:destruction>
+  <uws:parameters>
+    <uws:parameter id="LANG">ADQL</uws:parameter>
+    <uws:parameter id="QUERY">SELECT missing_column FROM mock_source</uws:parameter>
+    <uws:parameter id="RESPONSEFORMAT">votable</uws:parameter>
+  </uws:parameters>
+  <uws:results />
+  <uws:errorSummary type="fatal" hasDetail="true">
+    <uws:message>ADQL execution failed</uws:message>
+  </uws:errorSummary>
+</uws:job>

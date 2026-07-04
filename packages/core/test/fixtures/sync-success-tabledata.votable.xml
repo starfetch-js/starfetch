@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK">Successful query</INFO>
+    <TABLE name="mock_result">
+      <FIELD name="source_id" datatype="long" />
+      <FIELD name="ra" datatype="double" unit="deg" />
+      <FIELD name="dec" datatype="double" unit="deg" />
+      <DATA>
+        <TABLEDATA>
+          <TR>
+            <TD>1001</TD>
+            <TD>12.5</TD>
+            <TD>-45.25</TD>
+          </TR>
+          <TR>
+            <TD>1002</TD>
+            <TD>13.5</TD>
+            <TD>-44.75</TD>
+          </TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>

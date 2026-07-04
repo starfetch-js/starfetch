@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<availability xmlns="http://www.ivoa.net/xml/VOSIAvailability/v1.0">
+  <available>false</available>
+  <note>Maintenance window in progress.</note>
+</availability>

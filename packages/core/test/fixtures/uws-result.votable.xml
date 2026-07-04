@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK">Successful async TAP query</INFO>
+    <TABLE>
+      <FIELD name="source_id" datatype="long" />
+      <FIELD name="ra" datatype="double" unit="deg" />
+      <FIELD name="dec" datatype="double" unit="deg" />
+      <DATA>
+        <TABLEDATA>
+          <TR>
+            <TD>1001</TD>
+            <TD>12.3</TD>
+            <TD>-45.6</TD>
+          </TR>
+          <TR>
+            <TD>1002</TD>
+            <TD>98.7</TD>
+            <TD>10.1</TD>
+          </TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>

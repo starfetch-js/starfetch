@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<capabilities
+  xmlns="http://www.ivoa.net/xml/VOSICapabilities/v1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+>
+  <capability standardID="ivo://ivoa.net/std/TAP">
+    <interface xsi:type="vs:ParamHTTP" role="std">
+      <accessURL use="base">https://example.test/tap</accessURL>
+    </interface>
+    <language>
+      <name>ADQL</name>
+    </language>
+  </capability>
+</capabilities>

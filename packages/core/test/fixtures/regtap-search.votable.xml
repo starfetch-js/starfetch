@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK">Successful RegTAP query</INFO>
+    <TABLE name="registry_services">
+      <FIELD name="ivoid" datatype="char" arraysize="*" />
+      <FIELD name="res_title" datatype="char" arraysize="*" />
+      <FIELD name="short_name" datatype="char" arraysize="*" />
+      <FIELD name="res_description" datatype="char" arraysize="*" />
+      <FIELD name="access_url" datatype="char" arraysize="*" />
+      <FIELD name="standard_id" datatype="char" arraysize="*" />
+      <DATA>
+        <TABLEDATA>
+          <TR>
+            <TD>ivo://example.test/gaia</TD>
+            <TD>Example Gaia TAP</TD>
+            <TD>GAIA</TD>
+            <TD>Example registry TAP service.</TD>
+            <TD>https://example.test/tap</TD>
+            <TD>ivo://ivoa.net/std/tap</TD>
+          </TR>
+          <TR>
+            <TD>ivo://example.test/simbad</TD>
+            <TD>Example SIMBAD TAP</TD>
+            <TD></TD>
+            <TD></TD>
+            <TD>https://simbad.example.test/tap</TD>
+            <TD>ivo://ivoa.net/std/tap#aux</TD>
+          </TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tableset
+  xmlns="http://www.ivoa.net/xml/VOSITables/v1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+>
+  <schema>
+    <name>gaiadr3</name>
+    <table type="output">
+      <name>gaiadr3.gaia_source</name>
+      <description>Gaia DR3 source catalog.</description>
+      <column>
+        <name>source_id</name>
+        <description>Unique source identifier.</description>
+        <dataType xsi:type="vod:TAPType">BIGINT</dataType>
+        <ucd>meta.id;meta.main</ucd>
+      </column>
+      <column>
+        <name>ra</name>
+        <description>Right ascension.</description>
+        <unit>deg</unit>
+        <dataType xsi:type="vod:TAPType">DOUBLE</dataType>
+        <ucd>pos.eq.ra;meta.main</ucd>
+      </column>
+    </table>
+    <table type="output">
+      <name>gaiadr3.astrophysical_parameters</name>
+      <description>Astrophysical parameters.</description>
+      <column>
+        <name>source_id</name>
+        <dataType xsi:type="vod:TAPType">BIGINT</dataType>
+      </column>
+    </table>
+  </schema>
+</tableset>

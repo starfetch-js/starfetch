@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK">Successful query</INFO>
+    <TABLE name="mock_result">
+      <FIELD name="source_id" datatype="long" />
+      <FIELD name="label" datatype="char" arraysize="*" />
+      <FIELD name="note" datatype="char" arraysize="*" />
+      <FIELD name="empty_value" datatype="char" arraysize="*" />
+      <FIELD name="null_like" datatype="char" arraysize="*" />
+      <DATA>
+        <TABLEDATA>
+          <TR>
+            <TD>1001</TD>
+            <TD>alpha,beta</TD>
+            <TD>quoted "value"</TD>
+            <TD></TD>
+            <TD>null</TD>
+          </TR>
+          <TR>
+            <TD>1002</TD>
+            <TD>tab	separated</TD>
+            <TD>line
+break</TD>
+            <TD></TD>
+            <TD>NULL</TD>
+          </TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>

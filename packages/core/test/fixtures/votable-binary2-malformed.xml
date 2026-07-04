@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.5" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK" />
+    <TABLE name="binary2_result">
+      <FIELD name="source_id" datatype="long" />
+      <FIELD name="ra" datatype="double" />
+      <DATA>
+        <BINARY2>
+          <STREAM encoding="base64">IAU=</STREAM>
+        </BINARY2>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>
