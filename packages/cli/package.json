@@ -1,6 +1,6 @@
 {
   "name": "@starfetch-js/cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CLI for querying Gaia, SIMBAD, VizieR, and other public astronomy TAP services with reproducible ADQL.",
   "type": "module",
   "license": "MIT",
@@ -49,8 +49,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@starfetch-js/core": "0.2.2",
-    "@starfetch-js/skill": "0.2.2",
+    "@starfetch-js/core": "0.2.3",
+    "@starfetch-js/skill": "0.2.3",
     "commander": "15.0.0"
   },
   "devDependencies": {

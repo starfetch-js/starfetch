@@ -1,6 +1,6 @@
 {
   "name": "@starfetch-js/skill",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Agent skill for safe, reproducible queries of Gaia, SIMBAD, VizieR, and other public astronomy catalogs.",
   "type": "module",
   "license": "MIT",
