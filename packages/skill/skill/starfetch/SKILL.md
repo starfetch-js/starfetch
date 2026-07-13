@@ -6,9 +6,15 @@ description: Use when an agent needs to select and inspect public astronomical T
 # Starfetch
 
 Use Starfetch to query public astronomical Table Access Protocol (TAP)
-services. Prefer Starfetch MCP tools when available; otherwise use the
-`starfetch` CLI. Installing this skill improves multi-step behavior, but the
-MCP server remains usable without it.
+services. Prefer Starfetch MCP tools when available.
+
+When MCP tools are unavailable and shell execution is allowed, invoke the CLI
+through `npx -y @starfetch-js/cli` instead of assuming that a global
+`starfetch` executable is installed. When neither MCP tools nor shell execution
+are available, explain that Starfetch must first be connected or installed.
+
+Installing this skill improves multi-step behavior, but the MCP server remains
+usable without it.
 
 ## Mandatory workflow
 

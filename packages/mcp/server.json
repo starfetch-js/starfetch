@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.starfetch-js/starfetch",
+  "title": "Starfetch",
+  "description": "Query public astronomy catalogs through metadata-first TAP and ADQL tools.",
+  "repository": {
+    "url": "https://github.com/starfetch-js/starfetch",
+    "source": "github"
+  },
+  "version": "0.2.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@starfetch-js/mcp",
+      "version": "0.2.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

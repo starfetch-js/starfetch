@@ -5,13 +5,12 @@ on:
     tags:
       - "v*.*.*"
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     environment: npm
     env:
       NPM_CONFIG_PROVENANCE: "true"
@@ -33,3 +32,38 @@ jobs:
       - run: npm run smoke:cli
       - run: npm --workspace packages/mcp run smoke
       - run: npm run release:publish
+
+  publish-mcp-registry:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install MCP Registry publisher
+        env:
+          MCP_PUBLISHER_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
+          MCP_PUBLISHER_VERSION: v1.7.9
+        run: |
+          archive="$RUNNER_TEMP/mcp-publisher.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz" \
+            --output "$archive"
+          echo "$MCP_PUBLISHER_SHA256  $archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" mcp-publisher
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Set Registry version from release tag
+        working-directory: packages/mcp
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          jq --arg version "$version" \
+            '.version = $version | .packages[0].version = $version' \
+            server.json > server.tmp
+          mv server.tmp server.json
+      - name: Authenticate to MCP Registry
+        working-directory: packages/mcp
+        run: mcp-publisher login github-oidc
+      - name: Publish to MCP Registry
+        working-directory: packages/mcp
+        run: mcp-publisher publish

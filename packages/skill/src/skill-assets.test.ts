@@ -19,6 +19,9 @@ describe("Starfetch skill assets", () => {
     expect(skill).toContain("references/query-safety.md");
     expect(skill).toContain("references/services/");
     expect(skill).toContain("examples/");
+    expect(skill).toContain("npx -y @starfetch-js/cli");
+    expect(skill).toContain("Starfetch must first be connected or installed");
+    expect(skill).not.toContain("otherwise use the\n`starfetch` CLI");
   });
 
   it("reads every canonical guidance file through the package interface", async () => {

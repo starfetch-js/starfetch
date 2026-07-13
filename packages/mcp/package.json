@@ -1,6 +1,7 @@
 {
   "name": "@starfetch-js/mcp",
   "version": "0.2.1",
+  "mcpName": "io.github.starfetch-js/starfetch",
   "description": "MCP server for querying Gaia, SIMBAD, VizieR, NASA Exoplanet Archive, IRSA, and other public astronomy catalogs.",
   "type": "module",
   "license": "MIT",

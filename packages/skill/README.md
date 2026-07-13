@@ -6,6 +6,12 @@ teaches agents to select a service, inspect live TAP metadata, construct
 bounded ADQL from the discovered schema, recover from failures, and report the
 exact query and assumptions used.
 
+Install the canonical skill directly from GitHub through skills.sh:
+
+```sh
+npx skills add https://github.com/starfetch-js/starfetch/tree/main/packages/skill/skill/starfetch
+```
+
 The skill supplements [@starfetch-js/mcp](https://www.npmjs.com/package/@starfetch-js/mcp);
 the MCP server remains usable without filesystem skills. Use the CLI to inspect
 or install the packaged guidance:

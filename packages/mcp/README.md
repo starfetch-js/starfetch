@@ -5,6 +5,9 @@ astronomy catalogs from an MCP-enabled agent. Starfetch inspects each live TAP
 service's schema before querying it, keeps exploratory queries bounded, and
 returns the exact ADQL needed to reproduce a result.
 
+Starfetch is listed in the
+[official MCP Registry](https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch).
+
 ## Install for an agent
 
 Starfetch requires Node.js 22 or newer. Register this stdio server with the

@@ -4,6 +4,8 @@
   <img src="assets/logo.svg" width="96" alt="Starfetch logo" />
 </p>
 
+[![skills.sh](https://skills.sh/b/starfetch-js/starfetch)](https://skills.sh/starfetch-js/starfetch/starfetch)
+
 Starfetch gives AI agents safe, reproducible access to public astronomy
 catalogs through the
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro).
@@ -67,7 +69,8 @@ agent workflow is convenient without becoming a scientific black box.
 
 Register Starfetch with the agent client that will launch it. Running the MCP
 package by itself only starts a stdio server; it does not connect that server to
-an agent.
+an agent. Starfetch is also discoverable through the
+[official MCP Registry](https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch).
 
 ### Codex
 
@@ -206,6 +209,12 @@ optional skill contains the full workflow, service references, and examples.
 Install the skill when the agent client supports filesystem skills and you want
 the strongest multi-interaction behavior. The skill is recommended, not
 required by the MCP server.
+
+Install the canonical skill directly from GitHub through skills.sh:
+
+```sh
+npx skills add https://github.com/starfetch-js/starfetch/tree/main/packages/skill/skill/starfetch
+```
 
 Inspect or install the packaged skill:
 
