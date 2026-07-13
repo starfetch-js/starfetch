@@ -25,5 +25,11 @@ export default defineConfig({
   },
   test: {
     include: testInclude,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      include: ["packages/*/src/**/*.ts"],
+      exclude: ["**/*.test.ts", "**/*.types.ts", "**/test/**"],
+    },
   },
 });

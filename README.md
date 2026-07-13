@@ -4,7 +4,13 @@
   <img src="assets/logo.svg" width="96" alt="Starfetch logo" />
 </p>
 
-[![skills.sh](https://skills.sh/b/starfetch-js/starfetch)](https://skills.sh/starfetch-js/starfetch/starfetch)
+<p align="center">
+  <a href="https://github.com/starfetch-js/starfetch/actions/workflows/ci.yml"><img src="https://github.com/starfetch-js/starfetch/actions/workflows/ci.yml/badge.svg?branch=main&amp;event=push" alt="CI" /></a>
+  <a href="https://codecov.io/gh/starfetch-js/starfetch"><img src="https://codecov.io/gh/starfetch-js/starfetch/graph/badge.svg?branch=main" alt="Coverage" /></a>
+  <a href="https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch"><img src="https://img.shields.io/badge/MCP_Registry-listed-6f42c1" alt="MCP Registry" /></a>
+  <a href="https://www.skills.sh/starfetch-js/starfetch/starfetch"><img src="https://img.shields.io/badge/skills.sh-starfetch-111827" alt="skills.sh" /></a>
+  <a href="https://www.npmjs.com/package/@starfetch-js/mcp"><img src="https://img.shields.io/npm/v/@starfetch-js/mcp?label=npm" alt="npm version" /></a>
+</p>
 
 Starfetch gives AI agents safe, reproducible access to public astronomy
 catalogs through the
@@ -422,6 +428,7 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm test
+npm run coverage
 npm run build
 npm run smoke:cli
 ```
