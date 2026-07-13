@@ -1,15 +1,27 @@
 {
   "name": "@starfetch-js/mcp",
-  "version": "0.2.0",
-  "description": "Model Context Protocol server for Starfetch.",
+  "version": "0.2.1",
+  "description": "MCP server for querying Gaia, SIMBAD, VizieR, NASA Exoplanet Archive, IRSA, and other public astronomy catalogs.",
   "type": "module",
   "license": "MIT",
   "keywords": [
     "astronomy",
+    "gaia",
+    "simbad",
+    "vizier",
+    "exoplanets",
+    "nasa-exoplanet-archive",
+    "irsa",
+    "star-catalog",
+    "virtual-observatory",
     "tap",
     "adql",
     "mcp",
-    "model-context-protocol"
+    "model-context-protocol",
+    "ai-agent",
+    "claude",
+    "cursor",
+    "codex"
   ],
   "homepage": "https://github.com/starfetch-js/starfetch#readme",
   "bugs": {
@@ -44,8 +56,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@starfetch-js/core": "0.2.0",
-    "@starfetch-js/skill": "0.2.0",
+    "@starfetch-js/core": "0.2.1",
+    "@starfetch-js/skill": "0.2.1",
     "zod": "4.4.3"
   },
   "devDependencies": {

@@ -1,15 +1,23 @@
 {
   "name": "@starfetch-js/core",
-  "version": "0.2.0",
-  "description": "Core TAP querying primitives for Starfetch.",
+  "version": "0.2.1",
+  "description": "TypeScript library for querying Gaia, SIMBAD, VizieR, and other public astronomy TAP services with reproducible ADQL.",
   "type": "module",
   "license": "MIT",
   "keywords": [
     "astronomy",
+    "gaia",
+    "simbad",
+    "vizier",
+    "exoplanets",
+    "nasa-exoplanet-archive",
+    "irsa",
+    "star-catalog",
+    "virtual-observatory",
     "tap",
     "adql",
-    "votable",
-    "virtual-observatory"
+    "typescript",
+    "votable"
   ],
   "homepage": "https://github.com/starfetch-js/starfetch#readme",
   "bugs": {

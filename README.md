@@ -14,15 +14,36 @@ a bounded ADQL query, execute it, and return the result with the exact service,
 table, query, limit, units, and assumptions it used.
 
 <p align="center">
-  <img src="assets/demo.gif" width="900" alt="A Starfetch-enabled agent inspecting Gaia metadata, running bounded ADQL, and summarizing the results" />
+  <img src="assets/demo.gif" width="900" alt="A Starfetch-enabled agent inspecting Gaia metadata, ranking high-proper-motion sources near the Pleiades, and summarizing the results" />
 </p>
 
 ```text
-You: Find up to 20 Gaia DR3 sources within 0.25 degrees of the
-     Pleiades center at RA 56.75°, Dec 24.12°. Summarize what you find.
+You: Find the 10 Gaia DR3 sources with the highest proper motion within 0.5
+     degrees of the Pleiades center at RA 56.75°, Dec +24.12°. What stands out?
 
 Agent: selects Gaia → inspects metadata → runs bounded ADQL →
        returns catalog rows, exact ADQL, units, and assumptions
+```
+
+Representative captured result:
+
+```text
+Service: ESA Gaia Archive
+Table: gaiadr3.gaia_source
+Rows returned: 10
+Query limit: TOP 10 / MAXREC 10
+
+Highest returned proper motions:
+- Gaia DR3 66780900298410496: 244.48 mas/yr
+- Gaia DR3 66524409149512064: 184.50 mas/yr
+
+Exact ADQL:
+SELECT TOP 10 source_id, ra, dec, pm, pmra, pmdec, parallax, parallax_error,
+  phot_g_mean_mag, bp_rp, ruwe
+FROM gaiadr3.gaia_source
+WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 56.75, 24.12, 0.5)) = 1
+  AND pm IS NOT NULL
+ORDER BY pm DESC
 ```
 
 Gaia, SIMBAD, VizieR, the NASA Exoplanet Archive, and IRSA are available as
@@ -34,11 +55,12 @@ agent workflow is convenient without becoming a scientific black box.
 
 - [Connect an agent](#connect-an-agent)
 - [What the agent does](#what-the-agent-does)
+- [Why Starfetch?](#why-starfetch)
 - [Reliability without hidden assumptions](#reliability-without-hidden-assumptions)
 - [Optional Starfetch skill](#optional-starfetch-skill)
 - [Supported scope](#supported-scope)
 - [CLI and TypeScript](#cli-and-typescript)
-- [Runnable examples](#runnable-examples)
+- [Run the Gaia proper-motion demo](#run-the-gaia-proper-motion-demo)
 - [Development](#development)
 
 ## Connect an agent
@@ -142,6 +164,22 @@ Query tools return result data separately from diagnostics. They preserve the
 exact submitted ADQL and effective row limit for reproduction and review.
 Synchronous queries and async submissions send TAP `MAXREC=100` when `maxrec`
 is omitted.
+
+## Why Starfetch?
+
+Starfetch is a useful middle layer when an agent needs live public catalog data
+without turning the workflow into a black box:
+
+- it inspects live schemas instead of guessing table and column names;
+- it bounds public-service queries by default and preserves service failures;
+- it returns exact ADQL, limits, units, and assumptions for reproduction;
+- it provides one metadata-first interface across several TAP services; and
+- its CLI and TypeScript library can reproduce an agent's query outside the
+  agent client.
+
+Use an archive's own interface, PyVO/Astropy, or local analysis tools instead
+when you need authenticated/private archives, extensive local analysis, image
+data processing, or authoritative astrophysical interpretation.
 
 ## Reliability without hidden assumptions
 
@@ -320,12 +358,23 @@ console.log(services[0]?.accessUrl);
 service and/or URL. Metadata methods read TAP `/availability`, `/capabilities`,
 and `/tables`; sync queries use `/sync`, and explicit jobs use `/async`.
 
-## Runnable examples
+## Run the Gaia proper-motion demo
 
-Runnable CLI, TypeScript API, live TAP, and MCP Inspector examples live in the
-separate [starfetch-js/examples](https://github.com/starfetch-js/examples)
-repository. Each query keeps its exact ADQL and expected columns beside a
-cross-platform Node.js runner.
+Reproduce the demo's metadata-first Gaia query and print the exact ADQL,
+effective limit, and returned rows:
+
+```sh
+git clone https://github.com/starfetch-js/starfetch.git
+cd starfetch
+npm ci
+npm run build
+node examples/quickstart/run.mjs
+```
+
+This command queries the public Gaia TAP service. For more CLI, TypeScript API,
+live TAP, and MCP Inspector workflows, see
+[starfetch-js/examples](https://github.com/starfetch-js/examples). Each example
+includes its exact ADQL, expected columns, and a cross-platform Node.js runner.
 
 ```sh
 git clone https://github.com/starfetch-js/examples.git
@@ -339,9 +388,6 @@ Launch MCP Inspector from that repository with:
 ```sh
 npm run inspect:mcp
 ```
-
-Real TAP calls are opt-in and excluded from default CI because remote service
-availability and rate limits are outside Starfetch's control.
 
 ## Packages
 
