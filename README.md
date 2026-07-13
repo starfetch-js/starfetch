@@ -13,6 +13,10 @@ select an appropriate service, inspect its live tables and columns, construct
 a bounded ADQL query, execute it, and return the result with the exact service,
 table, query, limit, units, and assumptions it used.
 
+<p align="center">
+  <img src="assets/demo.gif" width="900" alt="A Starfetch-enabled agent inspecting Gaia metadata, running bounded ADQL, and summarizing the results" />
+</p>
+
 ```text
 You: Find up to 20 Gaia DR3 sources within 0.25 degrees of the
      Pleiades center at RA 56.75°, Dec 24.12°. Summarize what you find.
