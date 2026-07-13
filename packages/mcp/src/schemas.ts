@@ -9,8 +9,12 @@ const textSchema = z.string().trim().min(1);
 const optionalTextSchema = textSchema.optional();
 
 const targetFields = {
-  service: optionalTextSchema.describe("Known Starfetch TAP service preset."),
-  url: optionalTextSchema.describe("Explicit TAP base URL."),
+  service: optionalTextSchema.describe(
+    "Known Starfetch TAP service preset selected for this workflow; use this or url.",
+  ),
+  url: optionalTextSchema.describe(
+    "Explicit TAP base URL selected for this workflow; use this or service.",
+  ),
 };
 
 export const targetInputSchema = z.object(targetFields).refine(hasTapTarget, {
@@ -33,7 +37,9 @@ export const registrySearchInputSchema = z.object({
 export const columnsInputSchema = z
   .object({
     ...targetFields,
-    table: textSchema.describe("Exact TAP table name."),
+    table: textSchema.describe(
+      "Exact TAP table name returned by prior metadata inspection.",
+    ),
   })
   .refine(hasTapTarget, {
     message: "Specify service or url.",
@@ -68,7 +74,9 @@ const uploadsSchema = z
 const tapQueryFields = {
   format: z.enum(tapOutputFormats).describe("MCP result output format."),
   maxrec: maxrecSchema.optional(),
-  query: textSchema.describe("ADQL query text."),
+  query: textSchema.describe(
+    "Exact metadata-backed ADQL query text. Use TOP for a query-level bound; do not use LIMIT.",
+  ),
   runId: optionalTextSchema.describe("Optional TAP RUNID request value."),
   uploads: uploadsSchema,
 };
@@ -101,7 +109,9 @@ export const tapJobSubmitInputSchema = z
   .object({
     ...targetFields,
     maxrec: maxrecSchema.optional(),
-    query: textSchema.describe("ADQL query text."),
+    query: textSchema.describe(
+      "Exact metadata-backed ADQL query text. Use TOP for a query-level bound; do not use LIMIT.",
+    ),
     requestFormat: z
       .enum(tapSyncFormats)
       .optional()
@@ -239,6 +249,7 @@ export const tapQueryDiagnosticsSchema = targetDiagnosticsSchema.extend({
   effectiveMaxrec: z.number().int().nonnegative(),
   format: z.enum(tapOutputFormats),
   requestFormat: z.enum(tapSyncFormats),
+  query: z.string(),
   runId: z.string().optional(),
   uploadCount: z.number().int().nonnegative(),
 });
@@ -261,6 +272,7 @@ export const tapJobDiagnosticsSchema = targetDiagnosticsSchema.extend({
 
 export const tapJobSubmitDiagnosticsSchema = targetDiagnosticsSchema.extend({
   effectiveMaxrec: z.number().int().nonnegative(),
+  query: z.string(),
   requestFormat: z.enum(tapSyncFormats).optional(),
   runId: z.string().optional(),
   uploadCount: z.number().int().nonnegative(),

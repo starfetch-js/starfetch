@@ -196,7 +196,7 @@ function assertCapabilitiesAllowAnonymousTap(
 ): void {
   if (capabilities.auth === "unsupported-auth") {
     throw new TapAuthUnsupportedError(
-      "This TAP query interface requires authentication, but Starfetch v1 only supports anonymous TAP requests.",
+      "This TAP query interface requires authentication, but Starfetch only supports anonymous TAP requests.",
     );
   }
 }

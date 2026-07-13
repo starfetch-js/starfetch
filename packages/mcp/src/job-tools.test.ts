@@ -43,6 +43,7 @@ describe("Starfetch MCP TAP async job tools", () => {
         },
         diagnostics: {
           effectiveMaxrec: 5,
+          query: "SELECT * FROM TAP_UPLOAD.targets",
           requestFormat: "votable",
           runId: "starfetch-mcp-async",
           target: { baseUrl: "https://example.test/tap" },
@@ -98,6 +99,7 @@ describe("Starfetch MCP TAP async job tools", () => {
         },
         diagnostics: {
           effectiveMaxrec: 100,
+          query: "SELECT TOP 2 source_id FROM mock_source",
           target: { baseUrl: "https://example.test/tap" },
           uploadCount: 0,
         },

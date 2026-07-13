@@ -20,13 +20,17 @@ Keep the package boundaries tight:
 - `starfetch` is the CLI package and should stay a thin caller over
   `@starfetch-js/core` and `@starfetch-js/skill`.
 
-Do not expand `0.1` into broad VO protocol support, Gaia-only workflows, GUI
-workflows, full ADQL parsing, or authenticated TAP flows unless a later issue
-explicitly changes scope.
+Do not expand the current pre-1.0 scope into broad VO protocol support,
+Gaia-only workflows, GUI workflows, full ADQL parsing, or authenticated TAP
+flows unless a later issue explicitly changes scope.
 
-The root `README.md` is the main user guide. Package READMEs are concise npm
-package-page summaries. Historical planning docs are not tracked as user
-documentation.
+The root `README.md` is the single human-facing repository guide. Package
+READMEs are concise npm package-page summaries, and packaged skill Markdown is
+a product asset consumed by agents and MCP resources. Do not create a parallel
+`docs/` hierarchy for user guides, demonstrations, or architecture notes unless
+a later issue explicitly changes this policy. Keep private launch planning,
+campaign tracking, raw media, and historical working notes outside the public
+repository.
 
 ## Runtime and Package Policy
 
@@ -94,6 +98,14 @@ Keep agent-facing surfaces aligned with Starfetch behavior:
   updates;
 - MCP should stay a thin adapter over `@starfetch-js/core`, not a duplicate TAP
   implementation;
+- `packages/skill/skill/starfetch/` is the canonical source for shared
+  Starfetch workflow, ADQL, service, safety, and example Markdown;
+- MCP prompts and resources should read canonical packaged skill assets rather
+  than embedding independent copies;
+- MCP tool descriptions must remain sufficient for safe metadata-first use by
+  clients that do not support prompts, resources, or filesystem skills;
+- human documentation should link to canonical skill examples instead of
+  maintaining copied demo content;
 - skill guidance should describe current behavior and safe usage, not planned
   behavior unless clearly labeled as future work;
 - when a CLI/API change deliberately does not apply to MCP or skill guidance,
@@ -151,31 +163,20 @@ npm --workspace packages/skill run build
 
 ## Examples Maintenance
 
-Keep `examples/` aligned with user-visible functionality:
+Runnable CLI, TypeScript API, and MCP Inspector demonstrations belong in the
+separate `starfetch-js/examples` repository. When user-visible behavior changes,
+evaluate that repository alongside the MCP, skill, README, and package README
+surfaces. Keep this repository's `packages/skill/skill/starfetch/examples/`
+directory: those Markdown files are canonical agent guidance packaged with the
+skill and exposed through MCP resources, not runnable example projects.
 
-- when adding or changing CLI/API behavior, update the relevant example if one
-  already covers that workflow;
-- if behavior is user-visible and no existing example covers it, add a new
-  cross-platform example under `examples/`;
-- prefer Node-based runners (`run.mjs`) over shell scripts so examples work on
-  Windows, macOS, and Linux;
-- keep generated outputs under ignored `examples/**/out/` directories;
-- when examples change, run the relevant example manually against real TAP data
-  when network access is available.
-
-For broad example changes, run:
-
-```sh
-npm run build
-npm run examples:live
-```
-
-Default CI and `npm test` should stay fixture-driven and must not require live
-public TAP services.
+Example runners should remain cross-platform Node.js programs, keep exact ADQL
+and expected columns beside the workflow, and use bounded real TAP queries.
+Default CI in either repository must not depend on public TAP availability.
 
 ## TAP Implementation Rules
 
-Important `0.1` rules:
+Important pre-1.0 rules:
 
 - use POST for `/sync` and `/async` query submission;
 - default `LANG=ADQL`;
@@ -189,7 +190,7 @@ Important `0.1` rules:
 - detect auth-only TAP interfaces where possible and fail with
   `TapAuthUnsupportedError`;
 - do not implement OAuth, cookies, passwords, tokens, or client certificates in
-  `0.1`;
+  the current release;
 - parse VOTable TABLEDATA, inline base64 BINARY, and inline base64 BINARY2 rows;
 - treat VOTable FITS row decoding, remote streams, and compressed streams as
   follow-up work.

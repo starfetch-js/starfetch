@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
+import { registerStarfetchGuidance } from "./guidance.js";
 import { registerStarfetchTools } from "./tools.js";
 
 /** MCP server name advertised to clients. */
@@ -10,7 +11,7 @@ export const mcpServerName = "starfetch";
 export const mcpServerVersion = readPackageVersion();
 
 const serverInstructions =
-  "Use Starfetch tools to inspect TAP service metadata before writing service-specific ADQL. Use explicit service presets or TAP base URLs, keep public service requests bounded, and do not provide credentials.";
+  "Select an explicit TAP service, inspect availability and relevant table and column metadata before writing service-specific ADQL, and execute a small bounded query. On schema or syntax failure, re-inspect metadata before retrying. Report the exact service, table, ADQL, effective limit, output format, and assumptions. Never present a service error as an empty scientific result. Do not provide credentials.";
 
 /** Options for constructing a Starfetch MCP server. */
 export type StarfetchMcpServerOptions = {
@@ -39,6 +40,7 @@ export function createStarfetchMcpServer(
   );
 
   registerStarfetchTools(server, options);
+  registerStarfetchGuidance(server);
 
   return server;
 }

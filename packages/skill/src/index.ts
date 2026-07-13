@@ -1,4 +1,10 @@
-export { printStarfetchSkill, readStarfetchSkillFiles } from "./assets.js";
+export {
+  printStarfetchSkill,
+  readStarfetchSkillFile,
+  readStarfetchSkillFiles,
+  starfetchSkillPaths,
+  type StarfetchSkillPath,
+} from "./assets.js";
 export {
   installStarfetchSkill,
   installStarfetchSkillTarget,

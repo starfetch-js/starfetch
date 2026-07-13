@@ -4,61 +4,73 @@
   <img src="assets/logo.svg" width="96" alt="Starfetch logo" />
 </p>
 
-Starfetch is an agent-ready TAP/ADQL toolkit for public astronomy table data.
-It provides a local MCP server, a scriptable CLI, and a distributable agent
-skill for inspecting TAP services and running bounded ADQL queries. A reusable
-TypeScript library powers those surfaces for callers that want direct API
-access.
+Starfetch gives AI agents safe, reproducible access to public astronomy
+catalogs through the
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro).
 
-Starfetch is intentionally TAP-first. It helps agents and humans discover TAP
-metadata, query public services, manage explicit async jobs, and convert common
-tabular results without hiding the underlying TAP model.
+Ask an astronomy question in natural language. A Starfetch-enabled agent can
+select an appropriate service, inspect its live tables and columns, construct
+a bounded ADQL query, execute it, and return the result with the exact service,
+table, query, limit, units, and assumptions it used.
 
-## Contents
+```text
+You: Find up to 20 Gaia DR3 sources within 0.25 degrees of the
+     Pleiades center at RA 56.75°, Dec 24.12°. Summarize what you find.
 
-- [Install](#install)
-- [Agent Setup](#agent-setup)
-- [Agent Skill](#agent-skill)
-- [CLI Quickstart](#cli-quickstart)
-- [Async Jobs](#async-jobs)
-- [TypeScript API](#typescript-api)
-- [Examples](#examples)
-- [Packages](#packages)
+Agent: selects Gaia → inspects metadata → runs bounded ADQL →
+       returns catalog rows, exact ADQL, units, and assumptions
+```
+
+Gaia, SIMBAD, VizieR, the NASA Exoplanet Archive, and IRSA are available as
+built-in service presets. Agents can also discover and query other public TAP
+services by URL. Starfetch remains TAP-native and keeps ADQL visible, so the
+agent workflow is convenient without becoming a scientific black box.
+
+## Start here
+
+- [Connect an agent](#connect-an-agent)
+- [What the agent does](#what-the-agent-does)
+- [Reliability without hidden assumptions](#reliability-without-hidden-assumptions)
+- [Optional Starfetch skill](#optional-starfetch-skill)
+- [Supported scope](#supported-scope)
+- [CLI and TypeScript](#cli-and-typescript)
+- [Runnable examples](#runnable-examples)
 - [Development](#development)
-- [License](#license)
 
-## Install
+## Connect an agent
 
-Run the MCP server from an agent client:
+Register Starfetch with the agent client that will launch it. Running the MCP
+package by itself only starts a stdio server; it does not connect that server to
+an agent.
 
-```sh
-npx -y @starfetch-js/mcp
-```
+### Codex
 
-Install the CLI:
-
-```sh
-npm install -g @starfetch-js/cli
-```
-
-Run the CLI once without installing it globally:
+Register Starfetch for the Codex CLI, IDE extension, and ChatGPT desktop app:
 
 ```sh
-npx -y @starfetch-js/cli tap tables --service gaia
+codex mcp add starfetch -- npx -y @starfetch-js/mcp
+codex mcp list
 ```
 
-Install the TypeScript library when you need direct API access:
+These Codex surfaces share MCP configuration. See the
+[official Codex MCP documentation](https://developers.openai.com/codex/mcp).
+
+### Claude Code
+
+Register Starfetch in user scope:
 
 ```sh
-npm install @starfetch-js/core
+claude mcp add --scope user --transport stdio starfetch -- npx -y @starfetch-js/mcp
+claude mcp get starfetch
 ```
 
-Starfetch requires Node.js 22 or newer at runtime. Workspace development uses
-Node.js `>=22.13.0`.
+See the
+[official Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp).
 
-## Agent Setup
+### Cursor
 
-MCP clients can launch the packaged stdio server with:
+Add this server entry to `~/.cursor/mcp.json` for global use or
+`.cursor/mcp.json` for one project:
 
 ```json
 {
@@ -71,15 +83,41 @@ MCP clients can launch the packaged stdio server with:
 }
 ```
 
-If the MCP package is installed globally or in an environment where package
-bins are available, the executable is:
+See the
+[official Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol).
 
-```sh
-starfetch-mcp
+Other MCP clients can use the same stdio command and arguments through their
+own server-registration interface:
+
+```text
+command: npx
+args: -y @starfetch-js/mcp
 ```
 
-The MCP server exposes TAP preset, registry, metadata, bounded sync query, and
-explicit async job tools:
+Restart or reload the client after registration, then ask a normal astronomy
+question. You should not need to write ADQL or name Starfetch tools in the
+prompt. Starfetch requires Node.js 22 or newer.
+
+## What the agent does
+
+For a service-specific catalog question, Starfetch guidance teaches the agent
+to:
+
+1. choose an explicit service preset or public TAP URL;
+2. check service availability when appropriate;
+3. inspect relevant tables and the selected table's columns;
+4. construct ADQL only from discovered schema information;
+5. bound exploratory work with ADQL `TOP`, TAP `MAXREC`, or both;
+6. execute the smallest useful query;
+7. return the service, table, exact ADQL, effective limit, format, units, and
+   relevant assumptions;
+8. return to metadata after a schema or syntax failure instead of guessing.
+
+The agent should never present a timeout, availability failure, parse error, or
+query error as an empty scientific result. A successful zero-row result and a
+failed request are different outcomes.
+
+Starfetch exposes tools for the complete workflow:
 
 ```text
 starfetch_list_presets
@@ -96,66 +134,53 @@ starfetch_tap_job_fetch
 starfetch_tap_job_delete
 ```
 
-MCP tools return data separately from diagnostics. They do not accept
-credentials, do not execute shell commands, and do not write local result files.
-`starfetch_tap_query` and `starfetch_tap_submit_job` send TAP `MAXREC=100`
-when `maxrec` is omitted.
+Query tools return result data separately from diagnostics. They preserve the
+exact submitted ADQL and effective row limit for reproduction and review.
+Synchronous queries and async submissions send TAP `MAXREC=100` when `maxrec`
+is omitted.
 
-Example bounded MCP query arguments:
+## Reliability without hidden assumptions
 
-```json
-{
-  "service": "gaia",
-  "query": "SELECT TOP 5 source_id, ra, dec FROM gaiadr3.gaia_source",
-  "format": "json"
-}
-```
+The MCP server works without installing a filesystem skill. Starfetch carries
+the same canonical guidance through three overlapping layers:
 
-Example async MCP submit arguments:
+| Layer                     | Role                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| MCP tool descriptions     | Minimum metadata-first and bounded-query contract available to every MCP client |
+| MCP prompts and resources | Discoverable workflows, ADQL guidance, service notes, and examples              |
+| Optional Starfetch skill  | Rich multi-step behavior across longer agent interactions                       |
 
-```json
-{
-  "service": "gaia",
-  "query": "SELECT TOP 10 source_id, ra, dec FROM gaiadr3.gaia_source",
-  "requestFormat": "votable"
-}
-```
+The server exposes the retrievable prompts `query_astronomy_catalog`,
+`explore_service`, `run_cone_search`, and `troubleshoot_adql`. Canonical
+Markdown resources are available under `starfetch://guides/`,
+`starfetch://services/`, and `starfetch://examples/`.
 
-Use the returned job URL with `starfetch_tap_job_status`,
-`starfetch_tap_job_wait`, `starfetch_tap_job_fetch`, and
-`starfetch_tap_job_delete`. Absolute job URLs are enough for follow-up job
-tools; bare job IDs require a `service` or `url`.
+Prompt and resource support depends on the MCP client. Tool descriptions remain
+self-sufficient for basic safe operation when a client exposes tools only. The
+optional skill contains the full workflow, service references, and examples.
 
-## Agent Skill
+## Optional Starfetch skill
 
-The `@starfetch-js/skill` package contains concise guidance for agents using
-Starfetch safely: inspect metadata first, keep public-service queries bounded,
-prefer JSON or JSONL for agent-readable rows, and report service/query/format
-assumptions.
+Install the skill when the agent client supports filesystem skills and you want
+the strongest multi-interaction behavior. The skill is recommended, not
+required by the MCP server.
 
-Inspect the packaged skill:
+Inspect or install the packaged skill:
 
 ```sh
-starfetch skill print
+npx -y @starfetch-js/cli skill print
+npx -y @starfetch-js/cli skill install --target codex
+npx -y @starfetch-js/cli skill install --target claude-code --scope project
+npx -y @starfetch-js/cli skill install --target cursor
 ```
 
-Install it for a known local agent target:
+Install into a custom final skill directory with:
 
 ```sh
-starfetch skill install --target codex
-starfetch skill install --target claude-code --scope project
-starfetch skill install --target cursor
+npx -y @starfetch-js/cli skill install --path ./starfetch-skill
 ```
 
-Install into any custom final skill directory:
-
-```sh
-starfetch skill install --path ./starfetch-skill
-```
-
-Use `--dry-run` to print planned file actions without writing files.
-
-Default install scopes:
+Use `--dry-run` to preview file actions. Default destinations are:
 
 - Codex user scope: `~/.codex/skills/starfetch`
 - Claude Code user scope: `~/.claude/skills/starfetch`
@@ -164,11 +189,47 @@ Default install scopes:
 - Cursor project scope: `.cursor/rules/starfetch.mdc`
 
 Codex and Claude Code default to user scope. Cursor defaults to project scope
-because Cursor project rules are filesystem files under `.cursor/rules`.
+because its rules are project files.
 
-## CLI Quickstart
+## Supported scope
 
-Inspect a public TAP service before writing service-specific ADQL:
+Starfetch is designed for public astronomical Table Access Protocol services.
+It currently provides:
+
+- built-in presets for `gaia`, `simbad`, `vizier`, `exoplanetarchive`, and
+  `irsa`;
+- VO registry search for additional TAP endpoints;
+- VOSI availability, capabilities, table, and column metadata;
+- bounded synchronous ADQL queries;
+- explicit TAP/UWS async job submission, status, wait, fetch, and deletion;
+- VOTable, CSV, and TSV requests, plus safe JSON and JSONL conversion;
+- exact query and limit diagnostics.
+
+Starfetch does not accept credentials or implement authenticated TAP workflows.
+The MCP server does not execute shell commands or write local result files.
+Starfetch retrieves catalog data; it does not validate astrophysical
+interpretations or reconcile scientific differences between catalogs.
+
+VOTable TABLEDATA and inline base64 BINARY/BINARY2 rows can be converted.
+VOTable FITS rows, remote streams, and compressed streams remain pass-through
+or unsupported for local row conversion.
+
+## CLI and TypeScript
+
+MCP is the primary agent interface. The CLI is useful for scripting, inspecting
+a query outside an agent, and reproducing the exact request an agent reported.
+The TypeScript library supports applications and custom adapters.
+
+### CLI quickstart
+
+Install or run the CLI once:
+
+```sh
+npm install -g @starfetch-js/cli
+npx -y @starfetch-js/cli tap tables --service gaia
+```
+
+Inspect metadata before writing service-specific ADQL:
 
 ```sh
 starfetch tap availability --service gaia
@@ -185,91 +246,62 @@ starfetch tap query \
   --format json
 ```
 
-Read ADQL from a file or stdin:
+ADQL can come from `--query`, a file, or stdin. Result data can be written with
+`--out`:
 
 ```sh
-starfetch tap query --service gaia --file query.sql --format csv
+starfetch tap query --service gaia --file query.sql --format csv --out result.csv
 cat query.sql | starfetch tap query --service gaia --format jsonl
 ```
 
-Write result data to a file:
-
-```sh
-starfetch tap query \
-  --url https://gea.esac.esa.int/tap-server/tap \
-  --query "SELECT TOP 5 table_name, description FROM TAP_SCHEMA.tables" \
-  --format votable \
-  --out tables.xml
-```
-
-Search VO registry metadata for TAP endpoint candidates:
-
-```sh
-starfetch tap registry search gaia --maxrec 5
-starfetch tap registry search gaia --format json
-```
-
-Use a returned `accessUrl` with `--url`:
-
-```sh
-starfetch tap tables --url https://example.org/tap
-```
-
-Known presets are `gaia`, `simbad`, `vizier`, `exoplanetarchive`, and `irsa`.
-Use `--service` for a preset or `--url` for an explicit TAP base URL. When both
-are provided, `--url` is the endpoint; the service name is retained only as
+Use `--service` for a preset or `--url` for an explicit TAP base URL. If both
+are supplied, `--url` selects the endpoint and the service name remains as
 diagnostic context.
 
-## Async Jobs
+Discover additional services through the VO registry:
 
-Submit a TAP async job:
+```sh
+starfetch tap registry search gaia --maxrec 5 --format json
+```
+
+### Async jobs
+
+Use explicit async jobs for larger justified queries:
 
 ```sh
 starfetch tap jobs submit \
   --service gaia \
   --query "SELECT TOP 10 source_id, ra, dec FROM gaiadr3.gaia_source" \
   --maxrec 10
+
+starfetch tap jobs status <job-url>
+starfetch tap jobs wait --interval 2000 --timeout 120000 <job-url>
+starfetch tap jobs fetch <job-url> --format votable --out result.xml
+starfetch tap jobs delete <job-url>
 ```
 
-Inspect, wait for, fetch, and delete a known job:
+Absolute job URLs are sufficient for follow-up commands. Bare job IDs require
+`--service` or `--url` so Starfetch can resolve the TAP `/async` endpoint.
+
+### TypeScript API
+
+Install `@starfetch-js/core` when a script, app, or custom agent adapter needs
+direct TAP access:
 
 ```sh
-starfetch tap jobs status https://gea.esac.esa.int/tap-server/tap/async/<job-id>
-
-starfetch tap jobs wait \
-  --interval 2000 \
-  --timeout 120000 \
-  https://gea.esac.esa.int/tap-server/tap/async/<job-id>
-
-starfetch tap jobs fetch \
-  https://gea.esac.esa.int/tap-server/tap/async/<job-id> \
-  --format votable \
-  --out result.xml
-
-starfetch tap jobs delete https://gea.esac.esa.int/tap-server/tap/async/<job-id>
+npm install @starfetch-js/core
 ```
-
-Bare job IDs require `--url` or `--service` so Starfetch can resolve the TAP
-`/async` endpoint.
-
-## TypeScript API
-
-Use `@starfetch-js/core` directly when a script, app, or custom agent adapter
-needs TAP access from TypeScript.
 
 ```ts
 import { registry, tap } from "@starfetch-js/core";
 
 const client = tap("gaia");
-
-const availability = await client.availability();
 const columns = await client.columns("gaiadr3.gaia_source");
 const result = await client.query(
   "SELECT TOP 5 source_id, ra, dec FROM gaiadr3.gaia_source",
   { format: "votable", maxrec: 5 },
 );
 
-console.log(availability.available);
 console.log(columns.length);
 console.log(await result.json());
 
@@ -280,65 +312,41 @@ const services = await registry().searchTapServices({
 console.log(services[0]?.accessUrl);
 ```
 
-`tap(target)` accepts a known preset, a TAP base URL, or an object with
-`service` and/or `url`. Metadata methods read TAP `/availability`,
-`/capabilities`, and `/tables`. `query()` submits ADQL to `/sync`; `jobs`
-submits and controls explicit TAP `/async` jobs.
+`tap(target)` accepts a known preset, a TAP base URL, or an object containing a
+service and/or URL. Metadata methods read TAP `/availability`, `/capabilities`,
+and `/tables`; sync queries use `/sync`, and explicit jobs use `/async`.
 
-Request formats are `votable`, `csv`, and `tsv`. CLI and helper conversions can
-produce `json` and `jsonl` from supported VOTable, CSV, or TSV rows. VOTable
-TABLEDATA and inline base64 BINARY/BINARY2 rows are decoded for row conversion;
-FITS rows, remote streams, and compressed streams remain pass-through or
-unsupported for local row conversion.
+## Runnable examples
 
-## Examples
-
-Examples live in `examples/`. Each example includes the ADQL query and expected
-columns so you can run the same workflow with the CLI or from this repository.
-
-- `examples/01-gaia-nearby-stars`
-- `examples/02-gaia-high-proper-motion`
-- `examples/04-simbad-field-object-types`
-- `examples/10-irsa-wise-region-query`
-- `examples/12-gaia-async-large-query`
-
-With the CLI, run an example query file directly:
+Runnable CLI, TypeScript API, live TAP, and MCP Inspector examples live in the
+separate [starfetch-js/examples](https://github.com/starfetch-js/examples)
+repository. Each query keeps its exact ADQL and expected columns beside a
+cross-platform Node.js runner.
 
 ```sh
-npm install -g @starfetch-js/cli
-starfetch tap query \
-  --service gaia \
-  --file examples/01-gaia-nearby-stars/query.sql \
-  --format csv \
-  --out nearby-stars.csv
+git clone https://github.com/starfetch-js/examples.git
+cd examples
+npm ci
+node 01-gaia-nearby-stars/run.mjs
 ```
 
-From this repository, the example runners use the local CLI build:
+Launch MCP Inspector from that repository with:
 
 ```sh
-npm run build
-node examples/01-gaia-nearby-stars/run.mjs
+npm run inspect:mcp
 ```
 
-Run every checked-in live example from this repository:
-
-```sh
-npm run build
-npm run examples:live
-```
-
-Live examples contact public TAP services. They are not part of default CI
-because remote service availability, rate limits, and network conditions are
-outside Starfetch's control.
+Real TAP calls are opt-in and excluded from default CI because remote service
+availability and rate limits are outside Starfetch's control.
 
 ## Packages
 
-- `@starfetch-js/mcp`: stdio MCP server for Starfetch TAP tools.
-- `@starfetch-js/cli`: CLI package that exposes the `starfetch` executable and
-  skill commands.
-- `@starfetch-js/skill`: distributable agent skill package and install helpers.
-- `@starfetch-js/core`: TAP, VOSI, UWS, VOTable, registry, and output-conversion
-  primitives used by the MCP server and CLI.
+- `@starfetch-js/mcp`: primary stdio MCP server and packaged agent guidance.
+- `@starfetch-js/skill`: optional distributable Starfetch agent skill.
+- `@starfetch-js/cli`: scripting, TAP inspection, query, async job, and skill
+  installation commands.
+- `@starfetch-js/core`: reusable TAP, VOSI, UWS, VOTable, registry, and output
+  conversion primitives.
 
 ## Development
 
@@ -348,7 +356,7 @@ Install dependencies with the committed lockfile:
 npm ci
 ```
 
-Root checks:
+The workspace requires Node.js `>=22.13.0`. Run:
 
 ```sh
 npm run format:check
@@ -359,7 +367,7 @@ npm run build
 npm run smoke:cli
 ```
 
-Package checks for release-sensitive agent surfaces:
+Release-sensitive agent surface checks are:
 
 ```sh
 npm --workspace packages/mcp run typecheck
@@ -372,12 +380,11 @@ npm --workspace packages/skill run test
 npm --workspace packages/skill run build
 ```
 
-Default tests use local fixtures and mocks only. They do not require live TAP
-services, network access, or secrets. Optional live checks are explicit:
+Default tests use local fixtures and mocks only. Optional live TAP checks are
+explicit:
 
 ```sh
 npm run test:live:tap
-npm run examples:live
 ```
 
 ## License

@@ -9,6 +9,7 @@ import {
   installStarfetchSkill,
   installStarfetchSkillTarget,
   printStarfetchSkill,
+  readStarfetchSkillFile,
   resolveStarfetchSkillTargetDestination,
 } from "./index.js";
 
@@ -27,7 +28,9 @@ describe("Starfetch skill package", () => {
     expect(output).toContain("# Starfetch Skill Bundle");
     expect(output).toContain("## SKILL.md");
     expect(output).toContain("name: starfetch");
-    expect(output).toContain("## references/tap-workflow.md");
+    expect(output).toContain("## references/tap-metadata.md");
+    expect(output).toContain("## references/services/gaia.md");
+    expect(output).toContain("## examples/proper-motion.md");
     expect(output).toContain("```markdown");
   });
 
@@ -40,7 +43,7 @@ describe("Starfetch skill package", () => {
       readFile(join(destination, "SKILL.md"), "utf8"),
     ).resolves.toContain("name: starfetch");
     await expect(
-      readFile(join(destination, "references", "safety.md"), "utf8"),
+      readFile(join(destination, "references", "query-safety.md"), "utf8"),
     ).resolves.toContain("Do not use credentials");
     expect(result.destination).toBe(destination);
     expect(result.actions.some((action) => action.kind === "create")).toBe(
@@ -171,7 +174,7 @@ describe("Starfetch skill package", () => {
   it("fails before writing when a directory blocks a packaged file", async () => {
     const root = await makeTempDir();
     const destination = join(root, "blocked");
-    await mkdir(join(destination, "references", "tap-workflow.md"), {
+    await mkdir(join(destination, "references", "tap-metadata.md"), {
       recursive: true,
     });
 
@@ -190,6 +193,22 @@ describe("Starfetch skill package", () => {
 
     await expect(printStarfetchSkill({ sourceDir })).rejects.toThrow(
       "Missing Starfetch skill asset: SKILL.md",
+    );
+  });
+
+  it("reads one requested asset without requiring the rest of the bundle", async () => {
+    const root = await makeTempDir();
+    const sourceDir = join(root, "partial-source");
+    await mkdir(join(sourceDir, "references"), { recursive: true });
+    await writeFile(join(sourceDir, "references", "adql.md"), "# Test ADQL");
+
+    await expect(
+      readStarfetchSkillFile("references/adql.md", { sourceDir }),
+    ).resolves.toBe("# Test ADQL");
+    await expect(
+      readStarfetchSkillFile("references/tap-metadata.md", { sourceDir }),
+    ).rejects.toThrow(
+      "Missing Starfetch skill asset: references/tap-metadata.md",
     );
   });
 

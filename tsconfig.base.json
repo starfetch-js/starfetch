@@ -21,7 +21,6 @@
     }
   },
   "include": [
-    "examples/**/*.ts",
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
     "eslint.config.js",

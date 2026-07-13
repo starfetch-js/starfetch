@@ -33,6 +33,8 @@ describe("createStarfetchMcpServer", () => {
         version: mcpServerVersion,
       });
       expect(client.getServerCapabilities()).toHaveProperty("tools");
+      expect(client.getServerCapabilities()).toHaveProperty("prompts");
+      expect(client.getServerCapabilities()).toHaveProperty("resources");
 
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
@@ -385,6 +387,7 @@ describe("createStarfetchMcpServer", () => {
         diagnostics: {
           effectiveMaxrec: 100,
           format: "csv",
+          query: "SELECT TOP 2 source_id, ra, dec FROM mock_source",
           requestFormat: "csv",
           target: { baseUrl: "https://example.test/tap" },
           uploadCount: 0,
@@ -432,6 +435,7 @@ describe("createStarfetchMcpServer", () => {
           diagnostics: {
             effectiveMaxrec: 2,
             format,
+            query: "SELECT TOP 2 * FROM mock_source",
             requestFormat: "votable",
           },
         });

@@ -49,7 +49,7 @@ export function registerJobTools(
     {
       annotations: writeNetworkAnnotations,
       description:
-        "Submit an explicit TAP async job for longer ADQL work. Use starfetch_tap_query for short bounded sync queries.",
+        "Submit metadata-backed bounded ADQL as an explicit TAP async job when synchronous querying is insufficient. Preserve the exact query and use starfetch_tap_query for small work.",
       inputSchema: tapJobSubmitInputSchema,
       outputSchema: z.object({
         data: tapJobDataSchema,
@@ -68,11 +68,13 @@ export function registerJobTools(
         const diagnostics: {
           effectiveMaxrec: number;
           requestFormat?: TapSyncFormat;
+          query: string;
           runId?: string;
           target: ReturnType<typeof targetDiagnostics>;
           uploadCount: number;
         } = {
           effectiveMaxrec: maxrec,
+          query: input.query,
           target: targetDiagnostics(client.target),
           uploadCount: input.uploads?.length ?? 0,
         };

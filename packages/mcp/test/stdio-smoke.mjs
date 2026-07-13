@@ -26,6 +26,8 @@ try {
     version: "0.1.1",
   });
   assert.ok(client.getServerCapabilities()?.tools);
+  assert.ok(client.getServerCapabilities()?.prompts);
+  assert.ok(client.getServerCapabilities()?.resources);
 
   const tools = await client.listTools();
   assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), [
@@ -89,6 +91,23 @@ try {
   });
   assert.equal(presets.isError, undefined);
   assert.equal(presets.structuredContent.diagnostics.count, 5);
+
+  const prompts = await client.listPrompts();
+  assert.deepEqual(prompts.prompts.map((prompt) => prompt.name).sort(), [
+    "explore_service",
+    "query_astronomy_catalog",
+    "run_cone_search",
+    "troubleshoot_adql",
+  ]);
+
+  const resources = await client.listResources();
+  assert.ok(
+    resources.resources.some(
+      (resource) => resource.uri === "starfetch://guides/adql",
+    ),
+  );
+  const adql = await client.readResource({ uri: "starfetch://guides/adql" });
+  assert.match(adql.contents[0].text, /Construct ADQL only after inspecting/);
 } finally {
   await client.close();
 }

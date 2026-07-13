@@ -1,27 +1,41 @@
 ---
 name: starfetch
-description: Use when an agent needs to inspect public astronomical TAP services, discover TAP metadata, write bounded ADQL queries, run Starfetch MCP tools or CLI commands, handle TAP async jobs, or choose Starfetch output formats safely.
+description: Use when an agent needs to select and inspect public astronomical TAP services, construct bounded ADQL from discovered metadata, execute Starfetch MCP tools or CLI commands, recover from query failures, and report reproducible results.
 ---
 
 # Starfetch
 
-Use Starfetch to query and inspect public astronomical Table Access Protocol
-(TAP) services. Prefer Starfetch MCP tools when available; otherwise use the
-`starfetch` CLI or `@starfetch-js/core` library exposed by the project.
+Use Starfetch to query public astronomical Table Access Protocol (TAP)
+services. Prefer Starfetch MCP tools when available; otherwise use the
+`starfetch` CLI. Installing this skill improves multi-step behavior, but the
+MCP server remains usable without it.
 
-## Workflow
+## Mandatory workflow
 
-1. Identify the TAP service explicitly by preset or URL.
-2. Inspect metadata before writing service-specific ADQL.
-3. Run bounded queries first with `TOP`, TAP `MAXREC`, or both.
-4. Prefer JSON or JSONL for agent-readable rows; use VOTable when VO-native
-   metadata matters.
-5. Report the service, query, output format, row limit, and assumptions.
+1. Select an explicit service preset or TAP URL appropriate to the question.
+2. Check service availability when the service may be unavailable or slow.
+3. Inspect relevant tables, then inspect columns for the exact selected table.
+4. Construct ADQL using only discovered table and column names.
+5. Bound exploratory queries with `TOP`, TAP `MAXREC`, or both.
+6. Execute the smallest query that can answer the question.
+7. If a schema or syntax error occurs, re-inspect metadata before retrying.
+8. Return the service, table, exact ADQL, effective limit, output format, and
+   relevant assumptions with the result.
+
+Never construct a service-specific query from memory when table or column
+metadata can be inspected first. Never present a service error as an empty
+scientific result.
+
+Use async jobs only when the bounded synchronous workflow is insufficient.
+Prefer JSON or JSONL for agent-readable rows and VOTable when VO-native
+metadata matters. Do not infer scientific conclusions beyond the returned
+catalog fields and the user's stated assumptions.
 
 ## References
 
-- Read `references/tap-workflow.md` for the metadata-first query workflow.
-- Read `references/adql-patterns.md` for conservative ADQL patterns.
-- Read `references/public-service-etiquette.md` before using public archives.
-- Read `references/output-formats.md` when choosing result formats.
-- Read `references/safety.md` for operational and interpretation limits.
+- Read `references/tap-metadata.md` before selecting tables or columns.
+- Read `references/adql.md` for conservative ADQL syntax and spatial queries.
+- Read `references/query-safety.md` before executing public-service queries.
+- Read the matching file under `references/services/` for service-specific
+  behavior; inspect live metadata even when a profile names likely tables.
+- Read the closest file under `examples/` for a complete reproducible workflow.

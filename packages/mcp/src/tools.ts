@@ -58,7 +58,8 @@ function registerPresetTools(server: McpServer): void {
     "starfetch_list_presets",
     {
       annotations: readOnlyLocalAnnotations,
-      description: "List built-in Starfetch TAP service presets.",
+      description:
+        "List built-in TAP service presets before selecting an explicit target for metadata inspection.",
       outputSchema: z.object({
         data: z.array(presetSchema),
         diagnostics: countDiagnosticsSchema,
@@ -83,7 +84,8 @@ function registerRegistryTools(
     "starfetch_registry_search",
     {
       annotations: readOnlyNetworkAnnotations,
-      description: "Search VO registry metadata for TAP services.",
+      description:
+        "Search VO registry metadata when no built-in preset fits; inspect the selected service before querying it.",
       inputSchema: registrySearchInputSchema,
       outputSchema: z.object({
         data: z.array(registryServiceSchema),
@@ -135,7 +137,8 @@ function registerMetadataTools(
     "starfetch_tap_availability",
     {
       annotations: readOnlyNetworkAnnotations,
-      description: "Read TAP service availability metadata.",
+      description:
+        "Check whether the selected TAP service reports itself available; an unavailable service is not an empty catalog result.",
       inputSchema: targetInputSchema,
       outputSchema: z.object({
         data: availabilitySchema,
@@ -158,7 +161,8 @@ function registerMetadataTools(
     "starfetch_tap_capabilities",
     {
       annotations: readOnlyNetworkAnnotations,
-      description: "Read TAP service capabilities metadata.",
+      description:
+        "Inspect the selected TAP service's languages, formats, and authentication requirements before using service-specific features.",
       inputSchema: targetInputSchema,
       outputSchema: z.object({
         data: capabilitiesSchema,
@@ -181,7 +185,8 @@ function registerMetadataTools(
     "starfetch_tap_tables",
     {
       annotations: readOnlyNetworkAnnotations,
-      description: "List TAP service tables.",
+      description:
+        "List tables on the selected TAP service before choosing an exact table for ADQL.",
       inputSchema: targetInputSchema,
       outputSchema: z.object({
         data: z.array(tableSchema),
@@ -207,7 +212,8 @@ function registerMetadataTools(
     "starfetch_tap_columns",
     {
       annotations: readOnlyNetworkAnnotations,
-      description: "List columns for an exact TAP table name.",
+      description:
+        "Inspect names, datatypes, units, and descriptions for an exact metadata-discovered table before constructing ADQL.",
       inputSchema: columnsInputSchema,
       outputSchema: z.object({
         data: z.array(columnSchema),
@@ -238,7 +244,7 @@ function registerQueryTools(
     {
       annotations: readOnlyNetworkAnnotations,
       description:
-        "Run a bounded synchronous TAP ADQL query and return structured MCP content.",
+        "Run a small bounded synchronous TAP ADQL query after inspecting the exact table and columns. Use TOP in ADQL and/or maxrec, and treat tool errors as failures rather than empty scientific results.",
       inputSchema: tapQueryInputSchema,
       outputSchema: z.object({
         data: tapQueryDataSchema,
@@ -262,6 +268,7 @@ function registerQueryTools(
           effectiveMaxrec: number;
           format: TapOutputFormat;
           requestFormat: TapSyncFormat;
+          query: string;
           runId?: string;
           target: ReturnType<typeof targetDiagnostics>;
           uploadCount: number;
@@ -269,6 +276,7 @@ function registerQueryTools(
           effectiveMaxrec: maxrec,
           format,
           requestFormat,
+          query: input.query,
           target: targetDiagnostics(client.target),
           uploadCount: input.uploads?.length ?? 0,
         };

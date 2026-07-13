@@ -22,7 +22,8 @@ describe("starfetch skill", () => {
     expect(await runCli(["skill", "print"], { stdout: stdout.writer })).toBe(0);
     expect(stdout.text()).toContain("# Starfetch Skill Bundle");
     expect(stdout.text()).toContain("## SKILL.md");
-    expect(stdout.text()).toContain("## references/tap-workflow.md");
+    expect(stdout.text()).toContain("## references/tap-metadata.md");
+    expect(stdout.text()).toContain("## examples/proper-motion.md");
   });
 
   it("shows install examples in help", async () => {

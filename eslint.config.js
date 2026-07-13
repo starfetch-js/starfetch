@@ -14,11 +14,7 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: [
-      "examples/**/*.mjs",
-      "packages/*/test/**/*.mjs",
-      "scripts/**/*.mjs",
-    ],
+    files: ["packages/*/test/**/*.mjs", "scripts/**/*.mjs"],
     languageOptions: {
       globals: {
         console: "readonly",

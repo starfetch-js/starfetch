@@ -54,7 +54,7 @@ export class TapUploadError extends StarfetchError {
   }
 }
 
-/** TAP service requires authentication that Starfetch v1 does not support. */
+/** TAP service requires authentication that Starfetch does not support. */
 export class TapAuthUnsupportedError extends StarfetchError {
   constructor(message: string) {
     super(message);

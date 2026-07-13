@@ -5,7 +5,6 @@ node_modules/
 dist/
 build/
 coverage/
-examples/**/out/
 .nyc_output/
 .tmp/
 .cache/
