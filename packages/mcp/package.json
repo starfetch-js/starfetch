@@ -1,6 +1,6 @@
 {
   "name": "@starfetch-js/mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Model Context Protocol server for Starfetch.",
   "type": "module",
   "license": "MIT",
@@ -44,8 +44,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@starfetch-js/core": "0.1.1",
-    "@starfetch-js/skill": "0.1.1",
+    "@starfetch-js/core": "0.2.0",
+    "@starfetch-js/skill": "0.2.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

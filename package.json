@@ -1,6 +1,6 @@
 {
   "name": "starfetch-workspace",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -23,7 +23,6 @@
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@types/node": "22.19.21",
-    "conventional-changelog-conventionalcommits": "10.2.0",
     "eslint": "9.39.4",
     "lerna": "9.0.7",
     "prettier": "3.8.4",

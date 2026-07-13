@@ -1,13 +1,12 @@
 {
   "$schema": "node_modules/lerna/schemas/lerna-schema.json",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "npmClient": "npm",
   "packages": [".", "packages/*"],
   "command": {
     "version": {
       "allowBranch": "main",
       "conventionalCommits": true,
-      "changelogPreset": "conventionalcommits",
       "exact": true,
       "forcePublish": true,
       "message": "chore(release): publish %s"

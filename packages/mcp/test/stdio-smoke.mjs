@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,10 +8,13 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const serverEntry = resolve(packageRoot, "dist/index.js");
+const { version: packageVersion } = JSON.parse(
+  await readFile(resolve(packageRoot, "package.json"), "utf8"),
+);
 
 const client = new Client({
   name: "starfetch-mcp-stdio-smoke",
-  version: "0.1.1",
+  version: "0.0.0",
 });
 const transport = new StdioClientTransport({
   command: process.execPath,
@@ -23,7 +27,7 @@ try {
   assert.deepEqual(client.getServerVersion(), {
     name: "starfetch",
     title: "Starfetch",
-    version: "0.1.1",
+    version: packageVersion,
   });
   assert.ok(client.getServerCapabilities()?.tools);
   assert.ok(client.getServerCapabilities()?.prompts);
