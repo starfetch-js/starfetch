@@ -78,6 +78,43 @@ describe("TAP VOSI metadata", () => {
     ).resolves.toMatchObject({ auth: "unsupported-auth" });
   });
 
+  it("preserves less common advertised formats and unknown auth", async () => {
+    const mockFetch = createMockTapMetadataFetch({
+      "/tap/capabilities": new Response(`<?xml version="1.0"?>
+<capabilities>
+  <capability standardID="ivo://ivoa.net/std/TAP">
+    <language><name>ADQL</name></language>
+    <language><name>ADQL</name></language>
+    <language />
+    <outputFormat><mime>application/json</mime></outputFormat>
+    <outputFormat><alias>jsonl</alias></outputFormat>
+    <outputFormat><mime>text/plain</mime></outputFormat>
+    <outputFormat><alias>unsupported</alias></outputFormat>
+  </capability>
+</capabilities>`),
+    });
+
+    await expect(
+      tap("https://example.test/tap", { fetch: mockFetch }).capabilities(),
+    ).resolves.toEqual({
+      auth: "unknown",
+      formats: ["json", "jsonl", "text"],
+      languages: ["ADQL"],
+    });
+  });
+
+  it("returns an empty unknown summary when TAP capabilities are absent", async () => {
+    const mockFetch = createMockTapMetadataFetch({
+      "/tap/capabilities": new Response(
+        '<?xml version="1.0"?><capabilities />',
+      ),
+    });
+
+    await expect(
+      tap("https://example.test/tap", { fetch: mockFetch }).capabilities(),
+    ).resolves.toEqual({ auth: "unknown", formats: [], languages: [] });
+  });
+
   it("blocks sync query and async submit when capabilities prove auth-only TAP", async () => {
     const mockFetch = createMockTapMetadataFetch({
       "/tap/capabilities": "vosi-capabilities-auth-only.xml",
@@ -136,6 +173,35 @@ describe("TAP VOSI metadata", () => {
     ]);
   });
 
+  it("rethrows unexpected capabilities preflight failures", async () => {
+    const mockFetch = createMockTapMetadataFetch({
+      "/tap/capabilities": new Response(
+        `<?xml version="1.0"?>
+<VOTABLE>
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="ERROR">capabilities denied</INFO>
+  </RESOURCE>
+</VOTABLE>`,
+        {
+          headers: { "content-type": "application/x-votable+xml" },
+          status: 400,
+        },
+      ),
+    });
+
+    await expect(
+      tap("https://example.test/tap", { fetch: mockFetch }).query("SELECT 1", {
+        format: "csv",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        message: "TAP service error: capabilities denied",
+        name: "TapServiceError",
+      }),
+    );
+    expect(mockFetch.requests).toHaveLength(1);
+  });
+
   it("reads tables and exact-match columns", async () => {
     const mockFetch = createMockTapMetadataFetch({
       "/tap/tables": "vosi-tables.xml",
@@ -170,6 +236,30 @@ describe("TAP VOSI metadata", () => {
       },
     ]);
     await expect(client.columns("gaia_source")).resolves.toEqual([]);
+  });
+
+  it("skips nameless tables and columns while keeping sparse metadata", async () => {
+    const mockFetch = createMockTapMetadataFetch({
+      "/tap/tables": new Response(`<?xml version="1.0"?>
+<tableset>
+  <schema>
+    <table><description>Missing table name</description></table>
+    <table>
+      <name>catalog.sources</name>
+      <column><dataType>BIGINT</dataType></column>
+      <column><name>source_id</name></column>
+    </table>
+  </schema>
+</tableset>`),
+    });
+    const client = tap("https://example.test/tap", { fetch: mockFetch });
+
+    await expect(client.tables()).resolves.toEqual([
+      { name: "catalog.sources" },
+    ]);
+    await expect(client.columns("catalog.sources")).resolves.toEqual([
+      { name: "source_id" },
+    ]);
   });
 
   it("maps malformed metadata XML to TapParseError", async () => {

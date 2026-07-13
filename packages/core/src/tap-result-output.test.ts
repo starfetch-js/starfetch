@@ -271,6 +271,51 @@ describe("TAP result output conversion", () => {
     await expect(formatTapResult(result, "tsv")).rejects.toThrow(
       "Cannot convert csv TAP results to tsv.",
     );
+    await expect(formatTapResult(result, "votable")).rejects.toThrow(
+      "Cannot convert csv TAP results to votable.",
+    );
+  });
+
+  it("formats an empty VOTable result as empty JSONL", async () => {
+    const result = await createTapResultFromResponse(
+      "votable",
+      new Response(
+        `<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE>
+  <RESOURCE type="results">
+    <TABLE>
+      <FIELD name="source_id" datatype="long" />
+      <DATA><TABLEDATA /></DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>`,
+        { headers: { "content-type": "application/x-votable+xml" } },
+      ),
+    );
+
+    await expect(formatTapResult(result, "jsonl")).resolves.toBe("");
+  });
+
+  it("rejects row conversion when a VOTable field has no identifier", async () => {
+    const result = await createTapResultFromResponse(
+      "votable",
+      new Response(
+        `<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE>
+  <RESOURCE type="results">
+    <TABLE>
+      <FIELD datatype="long" />
+      <DATA><TABLEDATA><TR><TD>1001</TD></TR></TABLEDATA></DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>`,
+        { headers: { "content-type": "application/x-votable+xml" } },
+      ),
+    );
+
+    await expect(formatTapResult(result, "csv")).rejects.toThrow(
+      "VOTable FIELD must include name or ID",
+    );
   });
 
   it("keeps FITS row decoding unsupported and explicit", async () => {

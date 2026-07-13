@@ -158,6 +158,61 @@ describe("starfetch skill", () => {
     expect(stderr.text()).toContain("--path cannot be used with --target");
   });
 
+  it.each([
+    [
+      ["skill", "install", "--path", "/tmp/starfetch-skill", "--scope", "user"],
+      "--path cannot be used with --scope",
+    ],
+    [
+      [
+        "skill",
+        "install",
+        "--path",
+        "/tmp/starfetch-skill",
+        "--project-dir",
+        "/tmp/project",
+      ],
+      "--path cannot be used with --project-dir",
+    ],
+    [["skill", "install"], "Install requires --path or --target"],
+    [
+      ["skill", "install", "--target", "codex", "--scope", "workspace"],
+      "Unsupported skill scope 'workspace'",
+    ],
+    [
+      [
+        "skill",
+        "install",
+        "--target",
+        "codex",
+        "--project-dir",
+        "/tmp/project",
+      ],
+      "--project-dir requires --scope project",
+    ],
+  ])("rejects invalid install option combinations", async (args, message) => {
+    const stderr = createStringWriter();
+
+    expect(await runCli(args, { stderr: stderr.writer })).toBe(1);
+    expect(stderr.text()).toContain(message);
+  });
+
+  it("accepts claude as an alias for the Claude Code target", async () => {
+    const root = await makeTempDir();
+    const stdout = createStringWriter();
+
+    expect(
+      await runCli(["skill", "install", "--target", "claude", "--dry-run"], {
+        stdout: stdout.writer,
+        homeDir: root,
+      }),
+    ).toBe(0);
+    expect(stdout.text()).toContain(
+      join(root, ".claude", "skills", "starfetch"),
+    );
+    expect(stdout.text()).toContain("dry-run-create");
+  });
+
   it("prints a clear error for unsupported targets", async () => {
     const stderr = createStringWriter();
 

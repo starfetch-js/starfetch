@@ -11,6 +11,7 @@ import {
   printStarfetchSkill,
   readStarfetchSkillFile,
   resolveStarfetchSkillTargetDestination,
+  starfetchSkillPaths,
 } from "./index.js";
 
 const tempDirs: string[] = [];
@@ -118,6 +119,15 @@ describe("Starfetch skill package", () => {
     ).rejects.toThrow("Cursor user rules do not have a stable filesystem");
   });
 
+  it("rejects an empty home directory for user installs", async () => {
+    await expect(
+      resolveStarfetchSkillTargetDestination({
+        target: "codex",
+        homeDir: "",
+      }),
+    ).rejects.toThrow("Cannot resolve home directory for skill install");
+  });
+
   it("uses --project-dir as an explicit project destination root", async () => {
     const root = await makeTempDir();
     const projectDir = join(root, "manual-root");
@@ -171,6 +181,29 @@ describe("Starfetch skill package", () => {
     );
   });
 
+  it("reports already-current skill files as unchanged", async () => {
+    const root = await makeTempDir();
+    const destination = join(root, "existing");
+    await installStarfetchSkill({ destination });
+
+    const result = await installStarfetchSkill({ destination });
+
+    expect(result.actions).toHaveLength(starfetchSkillPaths.length);
+    expect(result.actions.every((action) => action.kind === "unchanged")).toBe(
+      true,
+    );
+  });
+
+  it("rejects a destination that is already a file", async () => {
+    const root = await makeTempDir();
+    const destination = join(root, "skill.md");
+    await writeFile(destination, "not a directory");
+
+    await expect(installStarfetchSkill({ destination })).rejects.toThrow(
+      `Skill destination is a file: ${destination}`,
+    );
+  });
+
   it("fails before writing when a directory blocks a packaged file", async () => {
     const root = await makeTempDir();
     const destination = join(root, "blocked");
@@ -212,6 +245,14 @@ describe("Starfetch skill package", () => {
     );
   });
 
+  it("rejects unknown asset paths at the runtime package boundary", async () => {
+    await expect(
+      readStarfetchSkillFile("references/not-packaged.md" as never),
+    ).rejects.toThrow(
+      "Unknown Starfetch skill asset: references/not-packaged.md",
+    );
+  });
+
   it("installs known targets through the install helper", async () => {
     const root = await makeTempDir();
     const project = join(root, "project");
@@ -232,6 +273,30 @@ describe("Starfetch skill package", () => {
     expect(result.destination).toBe(
       join(project, ".codex", "skills", "starfetch"),
     );
+  });
+
+  it("supports dry-run installation for known targets", async () => {
+    const root = await makeTempDir();
+    const project = join(root, "project");
+    await mkdir(join(project, ".git"), { recursive: true });
+
+    const result = await installStarfetchSkillTarget({
+      target: "codex",
+      scope: "project",
+      cwd: project,
+      dryRun: true,
+    });
+
+    expect(result.dryRun).toBe(true);
+    expect(result.actions.every((action) => action.kind === "create")).toBe(
+      true,
+    );
+    await expect(
+      readFile(
+        join(project, ".codex", "skills", "starfetch", "SKILL.md"),
+        "utf8",
+      ),
+    ).rejects.toThrow();
   });
 
   it("installs Cursor as a project rule file", async () => {

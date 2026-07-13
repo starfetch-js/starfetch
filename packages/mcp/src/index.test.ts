@@ -18,4 +18,14 @@ describe("Starfetch MCP entrypoint", () => {
 
     expect(isMcpEntrypoint(pathToFileURL(entrypoint).href, symlink)).toBe(true);
   });
+
+  it("rejects absent, different, and unreadable entrypoint paths", () => {
+    const moduleUrl = pathToFileURL(import.meta.filename).href;
+
+    expect(isMcpEntrypoint(moduleUrl, undefined)).toBe(false);
+    expect(isMcpEntrypoint(moduleUrl, import.meta.dirname)).toBe(false);
+    expect(
+      isMcpEntrypoint(moduleUrl, join(tmpdir(), "missing-starfetch-mcp")),
+    ).toBe(false);
+  });
 });

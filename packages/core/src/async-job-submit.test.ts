@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   parseTapJobReference,
@@ -11,6 +11,10 @@ import {
   TapUploadError,
 } from "./index.js";
 import { createMockTapAsyncFetch } from "../test/mock-tap-async.js";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("TAP async job submit", () => {
   it("parses TAP async job references", () => {
@@ -197,6 +201,89 @@ describe("TAP async job submit", () => {
         .wait({ intervalMs: 0, backoff: true, maxIntervalMs: 0 }),
     ).resolves.toMatchObject({ phase: "COMPLETED" });
     expect(mockFetch.requests).toHaveLength(4);
+  });
+
+  it.each([
+    ["intervalMs", -1, "interval"],
+    ["intervalMs", 1.5, "interval"],
+    ["timeoutMs", -1, "timeout"],
+    ["timeoutMs", Number.MAX_SAFE_INTEGER + 1, "timeout"],
+    ["maxIntervalMs", -1, "maximum interval"],
+    ["maxIntervalMs", Number.NaN, "maximum interval"],
+  ] as const)(
+    "rejects invalid %s values before reading job status",
+    async (option, value, message) => {
+      const mockFetch = createMockTapAsyncFetch({ phase: "COMPLETED" });
+      const job = tap("https://example.test/tap", {
+        fetch: mockFetch,
+      }).jobs.from("job-123");
+
+      await expect(job.wait({ [option]: value })).rejects.toMatchObject({
+        name: "TapHttpError",
+        message: expect.stringContaining(message),
+      });
+      expect(mockFetch.requests).toHaveLength(0);
+    },
+  );
+
+  it("aborts an active wait without leaving its sleep timer running", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const removeListener = vi.spyOn(controller.signal, "removeEventListener");
+    const mockFetch = createMockTapAsyncFetch({ phase: "PENDING" });
+    let observedStatus: (() => void) | undefined;
+    const statusObserved = new Promise<void>((resolve) => {
+      observedStatus = resolve;
+    });
+
+    const waiting = tap("https://example.test/tap", { fetch: mockFetch })
+      .jobs.from("job-123")
+      .wait({
+        intervalMs: 1000,
+        onProgress: () => observedStatus?.(),
+        signal: controller.signal,
+      });
+
+    await statusObserved;
+    await Promise.resolve();
+    expect(vi.getTimerCount()).toBe(1);
+
+    controller.abort("stop");
+
+    await expect(waiting).rejects.toMatchObject({
+      message: "The operation was aborted.",
+      name: "AbortError",
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(removeListener).toHaveBeenCalledWith("abort", expect.any(Function));
+    expect(mockFetch.requests).toHaveLength(1);
+  });
+
+  it("removes the abort listener after a poll interval resolves", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const removeListener = vi.spyOn(controller.signal, "removeEventListener");
+    const mockFetch = createMockTapAsyncFetch({
+      phases: ["PENDING", "COMPLETED"],
+    });
+    let observedStatus: (() => void) | undefined;
+    const statusObserved = new Promise<void>((resolve) => {
+      observedStatus = resolve;
+    });
+    const waiting = tap("https://example.test/tap", { fetch: mockFetch })
+      .jobs.from("job-123")
+      .wait({
+        intervalMs: 1000,
+        onProgress: () => observedStatus?.(),
+        signal: controller.signal,
+      });
+
+    await statusObserved;
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await expect(waiting).resolves.toMatchObject({ phase: "COMPLETED" });
+    expect(removeListener).toHaveBeenCalledWith("abort", expect.any(Function));
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("exports typed async wait errors", () => {

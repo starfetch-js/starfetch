@@ -7,6 +7,22 @@ import {
 } from "./index.js";
 import { readCoreFixture } from "../test/fixtures.js";
 
+function binaryVotable(
+  fields: string,
+  binary: string,
+  serialization: "BINARY" | "BINARY2" = "BINARY",
+): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE>
+  <RESOURCE type="results">
+    <TABLE>
+      ${fields}
+      <DATA><${serialization}>${binary}</${serialization}></DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>`;
+}
+
 describe("VOTable TABLEDATA parser", () => {
   it("parses FIELD metadata and TABLEDATA row values", () => {
     const document = parseVotable(`<?xml version="1.0" encoding="UTF-8"?>
@@ -297,5 +313,87 @@ describe("VOTable TABLEDATA parser", () => {
 
     expect(() => parseVotable(binary)).toThrow(TapParseError);
     expect(() => parseVotable(binary2)).toThrow(TapParseError);
+  });
+
+  it.each([
+    {
+      binary: '<STREAM encoding="base64">AQ==</STREAM>',
+      fields: "",
+      message: "no FIELD metadata",
+      type: TapParseError,
+    },
+    {
+      binary: "",
+      fields: '<FIELD name="value" datatype="int" />',
+      message: "did not contain STREAM",
+      type: TapParseError,
+    },
+    {
+      binary: '<STREAM href="https://example.test/data" encoding="base64" />',
+      fields: '<FIELD name="value" datatype="int" />',
+      message: "remote STREAM",
+      type: TapFormatUnsupportedError,
+    },
+    {
+      binary: "<STREAM>AQ==</STREAM>",
+      fields: '<FIELD name="value" datatype="int" />',
+      message: "encoding none",
+      type: TapFormatUnsupportedError,
+    },
+    {
+      binary: '<STREAM encoding="gzip">AQ==</STREAM>',
+      fields: '<FIELD name="value" datatype="int" />',
+      message: "encoding gzip",
+      type: TapFormatUnsupportedError,
+    },
+    {
+      binary: '<STREAM encoding="base64">!!!!</STREAM>',
+      fields: '<FIELD name="value" datatype="int" />',
+      message: "Failed to decode",
+      type: TapParseError,
+    },
+    {
+      binary: '<STREAM encoding="base64">AQ==</STREAM>',
+      fields: '<FIELD name="value" />',
+      message: "must include datatype",
+      type: TapParseError,
+    },
+    {
+      binary: '<STREAM encoding="base64">/////w==</STREAM>',
+      fields: '<FIELD name="value" datatype="int" arraysize="*" />',
+      message: "length was negative",
+      type: TapParseError,
+    },
+    {
+      binary: '<STREAM encoding="base64">AQ==</STREAM>',
+      fields: '<FIELD name="value" datatype="timestamp" />',
+      message: "datatype timestamp",
+      type: TapFormatUnsupportedError,
+    },
+    {
+      binary: '<STREAM encoding="base64">Ag==</STREAM>',
+      fields: '<FIELD name="value" datatype="boolean" />',
+      message: "Invalid VOTable boolean byte 2",
+      type: TapParseError,
+    },
+  ])(
+    "rejects unsupported or malformed BINARY input: $message",
+    ({ binary, fields, message, type }) => {
+      expect(() => parseVotable(binaryVotable(fields, binary))).toThrow(type);
+      expect(() => parseVotable(binaryVotable(fields, binary))).toThrow(
+        message,
+      );
+    },
+  );
+
+  it("stops BINARY Unicode strings at NUL while consuming the fixed field", () => {
+    const document = parseVotable(
+      binaryVotable(
+        '<FIELD name="label" datatype="unicodeChar" arraysize="3" />',
+        '<STREAM encoding="base64">AEEAAABD</STREAM>',
+      ),
+    );
+
+    expect(document.rows).toEqual([{ label: "A" }]);
   });
 });
