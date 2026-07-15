@@ -53,21 +53,33 @@ async function startExecutable(shutdownGraceMs: number): Promise<{
         HOST: "127.0.0.1",
         PORT: "0",
         SHUTDOWN_GRACE_MS: String(shutdownGraceMs),
+        TSX_TSCONFIG_PATH: fileURLToPath(
+          new URL("../tsconfig.json", import.meta.url),
+        ),
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
-  if (child.stdout === null) {
-    throw new Error("Expected the MCP HTTP process to expose stdout.");
+  if (child.stdout === null || child.stderr === null) {
+    throw new Error("Expected the MCP HTTP process to expose output streams.");
   }
+
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
 
   const [output] = await Promise.race([
     once(child.stdout, "data"),
-    once(child, "exit").then(() => {
-      throw new Error("MCP HTTP process exited before startup.");
+    once(child, "close").then(([code, signal]) => {
+      throw startupError(
+        `MCP HTTP process exited before startup (code ${String(code)}, signal ${String(signal)}).`,
+        stderr,
+      );
     }),
     delay(2_000).then(() => {
-      throw new Error("MCP HTTP process did not start.");
+      throw startupError("MCP HTTP process did not start.", stderr);
     }),
   ]);
   const started = JSON.parse(String(output)) as {
@@ -101,4 +113,9 @@ async function forceExit(child: ReturnType<typeof spawn>): Promise<void> {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function startupError(message: string, stderr: string): Error {
+  const detail = stderr.trim();
+  return new Error(detail.length === 0 ? message : `${message}\n${detail}`);
 }
