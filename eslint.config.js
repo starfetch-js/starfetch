@@ -8,6 +8,7 @@ export default [
       "dist/**",
       ".tmp/**",
       "node_modules/**",
+      "apps/*/dist/**",
       "packages/*/dist/**",
     ],
   },

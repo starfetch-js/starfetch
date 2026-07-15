@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
     "build": "npm run build --workspaces",
+    "dev:http": "npm --workspace @starfetch-js/mcp-app run dev",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",

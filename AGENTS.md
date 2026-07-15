@@ -16,6 +16,9 @@ Keep the package boundaries tight:
   parsing, output conversion, presets, registry discovery, async jobs, and
   typed errors.
 - `@starfetch-js/mcp` is a thin MCP adapter over `@starfetch-js/core`.
+- `apps/mcp-app` is a private Streamable HTTP host that constructs a fresh
+  `@starfetch-js/mcp` server and transport for each request. It owns only HTTP
+  policy, request lifecycle, and process shutdown.
 - `@starfetch-js/skill` owns packaged static skill files and install helpers.
 - `starfetch` is the CLI package and should stay a thin caller over
   `@starfetch-js/core` and `@starfetch-js/skill`.
@@ -41,6 +44,7 @@ The implementation is an npm workspace with TypeScript ESM packages:
 - `packages/cli` is `starfetch`;
 - `packages/mcp` is `@starfetch-js/mcp`;
 - `packages/skill` is `@starfetch-js/skill`.
+- `apps/mcp-app` is the private `@starfetch-js/mcp-app` development host.
 
 Target Node.js `>=22` for runtime packages. The root workspace may require a
 later Node 22 patch release when development tooling requires it. Preserve Bun
@@ -153,6 +157,12 @@ npm --workspace packages/mcp run build
 
 Use `npm --workspace packages/mcp run smoke` as a package binary sanity check
 when release or packaging behavior is relevant.
+
+For Streamable HTTP app changes, also run:
+
+```sh
+npm --workspace @starfetch-js/mcp-app run check
+```
 
 For skill package changes, run:
 

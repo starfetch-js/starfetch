@@ -421,6 +421,40 @@ Install dependencies with the committed lockfile:
 npm ci
 ```
 
+Run the private Streamable HTTP development app with:
+
+```sh
+npm run dev:http
+```
+
+It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
+`http://127.0.0.1:3000/healthz`. Each MCP request gets a fresh stateless
+`@starfetch-js/mcp` server. Configuration is environment-only:
+
+- `HOST` defaults to `127.0.0.1`; set `0.0.0.0` explicitly for all interfaces.
+- `PORT` defaults to `3000`.
+- `ALLOWED_ORIGINS` is a comma-separated list of exact browser origins and
+  defaults to none.
+- `SHUTDOWN_GRACE_MS` defaults to `10000` and accepts `1` through `60000`.
+
+To inspect the endpoint, start the app and run MCP Inspector in another shell:
+
+```sh
+npx -y @modelcontextprotocol/inspector@latest --cli http://127.0.0.1:3000/mcp --transport http --method tools/list
+npx -y @modelcontextprotocol/inspector@latest --cli http://127.0.0.1:3000/mcp --transport http --method tools/call --tool-name starfetch_list_presets
+```
+
+For a temporary remote URL, the development machine can run:
+
+```sh
+cloudflared tunnel --url http://127.0.0.1:3000 --http-host-header 127.0.0.1:3000
+```
+
+The HTTP app has no authentication or rate limiting. A quick tunnel is public
+and temporary: use only non-sensitive test traffic and stop it immediately
+after testing. This development app is not production deployment
+infrastructure.
+
 The workspace requires Node.js `>=22.13.0`. Run:
 
 ```sh
@@ -440,6 +474,8 @@ npm --workspace packages/mcp run typecheck
 npm --workspace packages/mcp run test
 npm --workspace packages/mcp run build
 npm --workspace packages/mcp run smoke
+
+npm --workspace @starfetch-js/mcp-app run check
 
 npm --workspace packages/skill run typecheck
 npm --workspace packages/skill run test
