@@ -2,6 +2,7 @@ import {
   parseTapJobReference,
   tapOutputFormats,
   tapSyncFormats,
+  type TapResultField,
 } from "@starfetch-js/core";
 import { z } from "zod/v4";
 
@@ -240,12 +241,36 @@ export const tableDiagnosticsSchema = targetDiagnosticsSchema.extend({
   table: z.string(),
 });
 
-export const tapQueryDataSchema = z.object({
-  content: z.string(),
-  format: z.enum(tapOutputFormats),
-});
+type TapResultFieldShape = {
+  [Key in keyof TapResultField]-?: z.ZodType<TapResultField[Key]>;
+};
+
+const tapResultFieldShape = {
+  name: z.string(),
+  datatype: z.string().optional(),
+  unit: z.string().optional(),
+  ucd: z.string().optional(),
+  utype: z.string().optional(),
+  description: z.string().optional(),
+} satisfies TapResultFieldShape;
+
+export const tapResultFieldSchema = z.object(tapResultFieldShape);
+
+export const tapQueryDataSchema = z.discriminatedUnion("format", [
+  z.object({
+    content: z.string(),
+    fields: z.array(tapResultFieldSchema),
+    format: z.enum(["json", "jsonl"]),
+    overflow: z.boolean().optional(),
+  }),
+  z.object({
+    content: z.string(),
+    format: z.enum(["csv", "tsv", "votable"]),
+  }),
+]);
 
 export const tapQueryDiagnosticsSchema = targetDiagnosticsSchema.extend({
+  durationMs: z.number().nonnegative(),
   effectiveMaxrec: z.number().int().nonnegative(),
   format: z.enum(tapOutputFormats),
   requestFormat: z.enum(tapSyncFormats),
@@ -284,7 +309,61 @@ export const tapJobWaitDiagnosticsSchema = tapJobDiagnosticsSchema.extend({
 });
 
 export const tapJobFetchDiagnosticsSchema = tapJobDiagnosticsSchema.extend({
+  durationMs: z.number().nonnegative(),
   format: z.enum(tapOutputFormats),
   requestFormat: z.enum(tapSyncFormats),
   sourceFormat: z.enum(tapSyncFormats),
 });
+
+export const presetListOutputSchema = z.object({
+  data: z.array(presetSchema),
+  diagnostics: countDiagnosticsSchema,
+});
+
+export const registrySearchOutputSchema = z.object({
+  data: z.array(registryServiceSchema),
+  diagnostics: z.object({
+    count: z.number().int().nonnegative(),
+    registryUrl: z.string(),
+  }),
+});
+
+export const tablesOutputSchema = z.object({
+  data: z.array(tableSchema),
+  diagnostics: targetDiagnosticsSchema.extend({
+    count: z.number().int().nonnegative(),
+  }),
+});
+
+export const columnsOutputSchema = z.object({
+  data: z.array(columnSchema),
+  diagnostics: tableDiagnosticsSchema,
+});
+
+export const tapQueryOutputSchema = z
+  .object({
+    data: tapQueryDataSchema,
+    diagnostics: tapQueryDiagnosticsSchema,
+  })
+  .superRefine((output, context) => {
+    if (output.data.format !== output.diagnostics.format) {
+      context.addIssue({
+        code: "custom",
+        message: "Query data and diagnostics formats must match.",
+      });
+    }
+  });
+
+export const tapJobFetchOutputSchema = z
+  .object({
+    data: tapQueryDataSchema,
+    diagnostics: tapJobFetchDiagnosticsSchema,
+  })
+  .superRefine((output, context) => {
+    if (output.data.format !== output.diagnostics.format) {
+      context.addIssue({
+        code: "custom",
+        message: "Fetched data and diagnostics formats must match.",
+      });
+    }
+  });

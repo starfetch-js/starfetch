@@ -5,13 +5,17 @@ import {
   TapParseError,
   TapServiceError,
 } from "./errors.js";
-import { parseDelimitedRows } from "./delimited-rows.js";
+import {
+  parseDelimitedTable,
+  type ParsedDelimitedTable,
+} from "./delimited-rows.js";
 import {
   parseVotable,
   parseVotableStatus,
   type VotableCellValue,
   type VotableDocument,
   type VotableField,
+  type VotableInfo,
 } from "./votable.js";
 import type { TapOutputFormat, TapSyncFormat } from "./tap-format.js";
 import type { TapRow } from "./tap-row.js";
@@ -28,12 +32,26 @@ export type TapResult = {
   json(): Promise<TapRow[]>;
   /** Stream supported rows as row objects. */
   rows(): AsyncIterable<TapRow>;
+  /** Read ordered result fields and available source metadata. */
+  fields(): Promise<TapResultField[]>;
+  /** Report TAP `QUERY_STATUS=OVERFLOW` when the result format exposes it. */
+  overflow(): Promise<boolean | undefined>;
   /** Read the result body as raw bytes. */
   arrayBuffer(): Promise<ArrayBuffer>;
   /** Return a clone of the underlying web `Response`. */
   response(): Response;
   /** Save the result body to a filesystem path in Node-compatible runtimes. */
   save(path: string): Promise<void>;
+};
+
+/** Ordered field metadata exposed by a TAP query result. */
+export type TapResultField = {
+  name: string;
+  datatype?: string;
+  unit?: string;
+  ucd?: string;
+  utype?: string;
+  description?: string;
 };
 
 /** Create a TAP result wrapper and reject TAP-reported service errors. */
@@ -201,7 +219,8 @@ class ResponseTapResult implements TapResult {
   #textPromise?: Promise<string>;
   #arrayBufferPromise?: Promise<ArrayBuffer>;
   #votablePromise?: Promise<VotableDocument>;
-  #rowsPromise?: Promise<TapRow[]>;
+  #queryStatusPromise?: Promise<VotableInfo | undefined>;
+  #delimitedPromise?: Promise<ParsedDelimitedTable>;
 
   constructor(format: TapSyncFormat, response: Response) {
     this.format = format;
@@ -225,6 +244,23 @@ class ResponseTapResult implements TapResult {
   rows(): AsyncIterable<TapRow> {
     this.#assertRowsSupported("rows");
     return this.#rows();
+  }
+
+  async fields(): Promise<TapResultField[]> {
+    if (this.#isVotableLike()) {
+      return (await this.#votable()).fields.map(toResultField);
+    }
+
+    return (await this.#delimited()).fields.map((name) => ({ name }));
+  }
+
+  async overflow(): Promise<boolean | undefined> {
+    if (!this.#isVotableLike()) {
+      return undefined;
+    }
+
+    const value = (await this.#queryStatus())?.value;
+    return value === undefined ? undefined : value.toUpperCase() === "OVERFLOW";
   }
 
   arrayBuffer(): Promise<ArrayBuffer> {
@@ -251,7 +287,7 @@ class ResponseTapResult implements TapResult {
       return;
     }
 
-    const queryStatus = parseVotableStatus(await this.text()).queryStatus;
+    const queryStatus = await this.#queryStatus();
 
     if (queryStatus?.value?.toUpperCase() === "ERROR") {
       throw new TapServiceError(
@@ -263,6 +299,13 @@ class ResponseTapResult implements TapResult {
   async #votable(): Promise<VotableDocument> {
     this.#votablePromise ??= this.text().then(parseVotable);
     return this.#votablePromise;
+  }
+
+  async #queryStatus(): Promise<VotableInfo | undefined> {
+    this.#queryStatusPromise ??= this.text().then(
+      (text) => parseVotableStatus(text).queryStatus,
+    );
+    return this.#queryStatusPromise;
   }
 
   async *#rows(): AsyncIterable<TapRow> {
@@ -278,10 +321,14 @@ class ResponseTapResult implements TapResult {
       return (await this.#votable()).rows;
     }
 
-    this.#rowsPromise ??= this.text().then((text) =>
-      parseDelimitedRows(this.format, text),
+    return (await this.#delimited()).rows;
+  }
+
+  async #delimited(): Promise<ParsedDelimitedTable> {
+    this.#delimitedPromise ??= this.text().then((text) =>
+      parseDelimitedTable(this.format, text),
     );
-    return this.#rowsPromise;
+    return this.#delimitedPromise;
   }
 
   #assertRowsSupported(helper: "json" | "rows"): void {
@@ -303,6 +350,28 @@ class ResponseTapResult implements TapResult {
     return new TapFormatUnsupportedError(
       `TapResult.${helper}() does not support ${this.format} results in this implementation slice.`,
     );
+  }
+}
+
+function toResultField(field: VotableField): TapResultField {
+  const result: TapResultField = { name: fieldKey(field) };
+
+  assignIfDefined(result, "datatype", field.datatype);
+  assignIfDefined(result, "unit", field.unit);
+  assignIfDefined(result, "ucd", field.ucd);
+  assignIfDefined(result, "utype", field.utype);
+  assignIfDefined(result, "description", field.description);
+
+  return result;
+}
+
+function assignIfDefined<TObject extends object, TKey extends keyof TObject>(
+  object: TObject,
+  key: TKey,
+  value: TObject[TKey] | undefined,
+): void {
+  if (value !== undefined) {
+    object[key] = value;
   }
 }
 

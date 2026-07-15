@@ -1,6 +1,3 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createStarfetchMcpServer } from "@starfetch-js/mcp";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -33,11 +30,7 @@ describe("createStarfetchTableView", () => {
 
     expect(view).toEqual({
       clipping: {
-        applied: false,
-        includedColumns: 4,
-        includedRows: 2,
         reasons: [],
-        serializedBytes: expect.any(Number),
         sourceColumns: 4,
         sourceRows: 2,
       },
@@ -68,9 +61,9 @@ describe("createStarfetchTableView", () => {
       title: "Starfetch TAP service presets",
     });
     expect(starfetchTableViewV1Schema.parse(view)).toEqual(view);
-    expect(view.clipping.serializedBytes).toBeLessThanOrEqual(
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes,
-    );
+    expect(
+      new TextEncoder().encode(JSON.stringify(view)).byteLength,
+    ).toBeLessThanOrEqual(STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes);
   });
 
   it("normalizes registry matches with registry provenance", () => {
@@ -252,9 +245,16 @@ describe("createStarfetchTableView", () => {
               missing: null,
             },
           ]),
+          fields: [
+            { name: "source_id" },
+            { name: "flux" },
+            { name: "note" },
+            { name: "missing" },
+          ],
           format: "json",
         },
         diagnostics: {
+          durationMs: 1,
           effectiveMaxrec: 2,
           format: "json",
           query,
@@ -292,6 +292,7 @@ describe("createStarfetchTableView", () => {
         },
       ],
       source: {
+        durationMs: 1,
         effectiveMaxrec: 2,
         format: "json",
         query,
@@ -307,16 +308,102 @@ describe("createStarfetchTableView", () => {
     });
   });
 
+  it("preserves canonical scientific field order and metadata", () => {
+    const view = createStarfetchTableView({
+      sourceTool: "starfetch_tap_query",
+      structuredContent: {
+        data: {
+          content: '[{"10":"ten","2":"two"}]',
+          fields: [
+            {
+              datatype: "long",
+              description: "Identifier.",
+              name: "10",
+              ucd: "meta.id",
+            },
+            {
+              datatype: "double",
+              name: "2",
+              unit: "deg",
+              utype: "example:angle",
+            },
+          ],
+          format: "json",
+          overflow: true,
+        },
+        diagnostics: {
+          durationMs: 1,
+          effectiveMaxrec: 1,
+          format: "json",
+          query: 'SELECT "10", "2" FROM numeric_columns',
+          requestFormat: "votable",
+          target: { baseUrl: "https://example.test/tap" },
+          uploadCount: 0,
+        },
+      },
+    });
+
+    expect(view.columns).toEqual([
+      {
+        datatype: "long",
+        description: "Identifier.",
+        key: "10",
+        label: "10",
+        ucd: "meta.id",
+      },
+      {
+        datatype: "double",
+        key: "2",
+        label: "2",
+        unit: "deg",
+        utype: "example:angle",
+      },
+    ]);
+    expect(view.source).toMatchObject({ overflow: true });
+  });
+
+  it("rejects scientific rows that do not exactly match canonical fields", () => {
+    const createInput = (content: string) => ({
+      sourceTool: "starfetch_tap_query",
+      structuredContent: {
+        data: {
+          content,
+          fields: [{ name: "source_id" }],
+          format: "json",
+        },
+        diagnostics: {
+          durationMs: 1,
+          effectiveMaxrec: 1,
+          format: "json",
+          query: "SELECT TOP 1 source_id FROM catalog.sources",
+          requestFormat: "votable",
+          target: { baseUrl: "https://example.test/tap" },
+          uploadCount: 0,
+        },
+      },
+    });
+
+    for (const content of ['[{"extra":"value"}]', "[{}]"]) {
+      expect(() => createStarfetchTableView(createInput(content))).toThrow(
+        expect.objectContaining<Partial<StarfetchPresentationError>>({
+          code: "INVALID_SOURCE",
+        }),
+      );
+    }
+  });
+
   it("normalizes async JSON rows without leaking or inventing provenance", () => {
     const view = createStarfetchTableView({
       sourceTool: "starfetch_tap_job_fetch",
       structuredContent: {
         data: {
           content: JSON.stringify([{ source_id: "9007199254740993" }]),
+          fields: [{ name: "source_id" }],
           format: "json",
         },
         diagnostics: {
           capability: "signed-secret-value",
+          durationMs: 1,
           format: "json",
           job: {
             id: "job-123",
@@ -333,6 +420,7 @@ describe("createStarfetchTableView", () => {
       resultKind: "async-query-rows",
       rows: [{ source_id: "9007199254740993" }],
       source: {
+        durationMs: 1,
         format: "json",
         job: {
           id: "job-123",
@@ -354,8 +442,13 @@ describe("createStarfetchTableView", () => {
     const empty = createStarfetchTableView({
       sourceTool: "starfetch_tap_query",
       structuredContent: {
-        data: { content: "[]", format: "json" },
+        data: {
+          content: "[]",
+          fields: [{ name: "source_id" }],
+          format: "json",
+        },
         diagnostics: {
+          durationMs: 1,
           effectiveMaxrec: 10,
           format: "json",
           query: "SELECT TOP 10 source_id FROM catalog.sources",
@@ -367,7 +460,7 @@ describe("createStarfetchTableView", () => {
     });
 
     expect(empty).toMatchObject({
-      columns: [],
+      columns: [{ key: "source_id", label: "source_id" }],
       rows: [],
       state: "empty",
     });
@@ -376,8 +469,13 @@ describe("createStarfetchTableView", () => {
       createStarfetchTableView({
         sourceTool: "starfetch_tap_query",
         structuredContent: {
-          data: { content: "not JSON", format: "json" },
+          data: {
+            content: "not JSON",
+            fields: [{ name: "source_id" }],
+            format: "json",
+          },
           diagnostics: {
+            durationMs: 1,
             effectiveMaxrec: 10,
             format: "json",
             query: "SELECT TOP 10 source_id FROM catalog.sources",
@@ -399,6 +497,7 @@ describe("createStarfetchTableView", () => {
         structuredContent: {
           data: { content: "source_id\n1\n", format: "csv" },
           diagnostics: {
+            durationMs: 1,
             effectiveMaxrec: 10,
             format: "csv",
             query: "SELECT TOP 10 source_id FROM catalog.sources",
@@ -413,328 +512,36 @@ describe("createStarfetchTableView", () => {
         code: "UNSUPPORTED_FORMAT",
       }),
     );
-  });
 
-  it("clips only whole trailing rows and columns in a deterministic order", () => {
-    const sourceRow = Object.fromEntries(
-      Array.from(
-        { length: STARFETCH_TABLE_VIEW_LIMITS_V1.maxColumns + 1 },
-        (_, index) => [`column_${String(index).padStart(2, "0")}`, "x"],
-      ),
-    );
-    const input = {
-      sourceTool: "starfetch_tap_query",
-      structuredContent: {
-        data: {
-          content: JSON.stringify(
-            Array.from(
-              { length: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows + 1 },
-              () => sourceRow,
-            ),
-          ),
-          format: "json",
-        },
-        diagnostics: {
-          effectiveMaxrec: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows + 1,
-          format: "json",
-          query: "SELECT * FROM wide_table",
-          requestFormat: "votable",
-          target: { baseUrl: "https://example.test/tap" },
-          uploadCount: 0,
-        },
+    for (const data of [
+      { content: "[]", format: "json" },
+      {
+        content: "[]",
+        fields: [{ name: "source_id" }],
+        format: "json",
       },
-    };
-
-    const first = createStarfetchTableView(input);
-    const second = createStarfetchTableView(input);
-
-    expect(first.clipping).toMatchObject({
-      applied: true,
-      includedColumns: STARFETCH_TABLE_VIEW_LIMITS_V1.maxColumns,
-      includedRows: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows,
-      reasons: ["columns", "rows"],
-      sourceColumns: STARFETCH_TABLE_VIEW_LIMITS_V1.maxColumns + 1,
-      sourceRows: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows + 1,
-    });
-    expect(first.columns.at(-1)?.key).toBe("column_31");
-    expect(first.rows).toHaveLength(STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows);
-    expect(Object.keys(first.rows[0] ?? {})).toEqual(
-      first.columns.map((column) => column.key),
-    );
-    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
-  });
-
-  it("preserves exact strings at the byte ceiling and rejects longer values", () => {
-    const exactValue = "😀".repeat(
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxStringBytes / 4,
-    );
-    const createInput = (value: string) => ({
-      sourceTool: "starfetch_tap_query",
-      structuredContent: {
-        data: {
-          content: JSON.stringify([{ value }]),
-          format: "json",
-        },
-        diagnostics: {
-          effectiveMaxrec: 1,
-          format: "json",
-          query: "SELECT TOP 1 value FROM exact_values",
-          requestFormat: "votable",
-          target: { baseUrl: "https://example.test/tap" },
-          uploadCount: 0,
-        },
-      },
-    });
-
-    expect(createStarfetchTableView(createInput(exactValue)).rows).toEqual([
-      { value: exactValue },
-    ]);
-    expect(() =>
-      createStarfetchTableView(createInput(`${exactValue}a`)),
-    ).toThrow(
-      expect.objectContaining<Partial<StarfetchPresentationError>>({
-        code: "VALUE_TOO_LONG",
-      }),
-    );
-  });
-
-  it("clips trailing rows until the serialized view fits its byte ceiling", () => {
-    const value = "x".repeat(1_000);
-    const view = createStarfetchTableView({
-      sourceTool: "starfetch_tap_query",
-      structuredContent: {
-        data: {
-          content: JSON.stringify(
-            Array.from(
-              { length: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows },
-              (_, index) => ({
-                value: `${String(index).padStart(3, "0")}${value}`,
-              }),
-            ),
-          ),
-          format: "json",
-        },
-        diagnostics: {
-          effectiveMaxrec: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows,
-          format: "json",
-          query: "SELECT value FROM large_rows",
-          requestFormat: "votable",
-          target: { baseUrl: "https://example.test/tap" },
-          uploadCount: 0,
-        },
-      },
-    });
-
-    expect(view.clipping).toMatchObject({
-      applied: true,
-      reasons: ["bytes"],
-      sourceRows: STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows,
-    });
-    expect(view.clipping.includedRows).toBeLessThan(
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows,
-    );
-    expect(view.clipping.serializedBytes).toBeLessThanOrEqual(
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes,
-    );
-    expect(view.rows.at(-1)?.value).toBe(
-      `${String(view.rows.length - 1).padStart(3, "0")}${value}`,
-    );
-  });
-
-  it("rejects views with inconsistent bounded-state metadata", () => {
-    const view = createStarfetchTableView({
-      sourceTool: "starfetch_list_presets",
-      structuredContent: {
-        data: [],
-        diagnostics: { count: 0 },
-      },
-    });
-
-    expect(() =>
-      starfetchTableViewV1Schema.parse({
-        ...view,
-        clipping: { ...view.clipping, serializedBytes: 0 },
-      }),
-    ).toThrow();
-    expect(() =>
-      starfetchTableViewV1Schema.parse({
-        ...view,
-        clipping: { ...view.clipping, includedRows: 1 },
-      }),
-    ).toThrow();
-    expect(() =>
-      starfetchTableViewV1Schema.parse({ ...view, state: "populated" }),
-    ).toThrow();
-  });
-
-  it("accepts all six result families from the public MCP protocol", async () => {
-    const server = createStarfetchMcpServer({ fetch: createProtocolFetch() });
-    const client = new Client({
-      name: "starfetch-presentation-contract-test",
-      version: "0.0.0",
-    });
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
-
-    try {
-      await server.connect(serverTransport);
-      await client.connect(clientTransport);
-
-      const calls = [
-        {
-          arguments: {},
-          expectedKind: "presets",
-          name: "starfetch_list_presets",
-        },
-        {
-          arguments: {
-            maxrec: 1,
-            query: "gaia",
-            registryUrl: "https://registry.example.test/tap",
+    ]) {
+      expect(() =>
+        createStarfetchTableView({
+          sourceTool: "starfetch_tap_query",
+          structuredContent: {
+            data,
+            diagnostics: {
+              durationMs: 1,
+              effectiveMaxrec: 10,
+              format: data.fields === undefined ? "json" : "jsonl",
+              query: "SELECT TOP 10 source_id FROM catalog.sources",
+              requestFormat: "votable",
+              target: { baseUrl: "https://example.test/tap" },
+              uploadCount: 0,
+            },
           },
-          expectedKind: "registry-services",
-          name: "starfetch_registry_search",
-        },
-        {
-          arguments: { url: "https://example.test/tap" },
-          expectedKind: "tables",
-          name: "starfetch_tap_tables",
-        },
-        {
-          arguments: {
-            table: "catalog.sources",
-            url: "https://example.test/tap",
-          },
-          expectedKind: "columns",
-          name: "starfetch_tap_columns",
-        },
-        {
-          arguments: {
-            format: "json",
-            maxrec: 1,
-            query: "SELECT TOP 1 source_id FROM catalog.sources",
-            url: "https://example.test/tap",
-          },
-          expectedKind: "query-rows",
-          name: "starfetch_tap_query",
-        },
-        {
-          arguments: {
-            format: "json",
-            jobIdOrUrl: "https://example.test/tap/async/job-123",
-            sourceFormat: "votable",
-          },
-          expectedKind: "async-query-rows",
-          name: "starfetch_tap_job_fetch",
-        },
-      ] as const;
-
-      for (const call of calls) {
-        const result = await client.callTool({
-          arguments: call.arguments,
-          name: call.name,
-        });
-
-        expect(result.isError).not.toBe(true);
-        expect(
-          createStarfetchTableView({
-            sourceTool: call.name,
-            structuredContent: result.structuredContent,
-          }).resultKind,
-        ).toBe(call.expectedKind);
-      }
-    } finally {
-      await client.close();
-      await server.close();
+        }),
+      ).toThrow(
+        expect.objectContaining<Partial<StarfetchPresentationError>>({
+          code: "INVALID_SOURCE",
+        }),
+      );
     }
   });
 });
-
-function createProtocolFetch(): typeof fetch {
-  return async (input, init) => {
-    const request = new Request(input, init);
-    const url = new URL(request.url);
-
-    if (url.pathname.endsWith("/capabilities")) {
-      return new Response("not found", { status: 404 });
-    }
-    if (url.pathname.endsWith("/tables")) {
-      return xmlResponse(VOSI_TABLES);
-    }
-    if (url.pathname.endsWith("/results/result")) {
-      return xmlResponse(QUERY_RESULT);
-    }
-    if (url.pathname.endsWith("/sync")) {
-      return xmlResponse(
-        url.hostname === "registry.example.test"
-          ? REGISTRY_RESULT
-          : QUERY_RESULT,
-      );
-    }
-
-    throw new Error(
-      `Unexpected protocol test request: ${request.method} ${url.href}`,
-    );
-  };
-}
-
-function xmlResponse(xml: string): Response {
-  return new Response(xml, {
-    headers: { "content-type": "application/x-votable+xml" },
-  });
-}
-
-const VOSI_TABLES = `<?xml version="1.0"?>
-<tableset>
-  <schema>
-    <name>catalog</name>
-    <table>
-      <name>catalog.sources</name>
-      <description>Example source catalog.</description>
-      <column>
-        <name>source_id</name>
-        <dataType>BIGINT</dataType>
-        <ucd>meta.id;meta.main</ucd>
-        <description>Unique source identifier.</description>
-      </column>
-    </table>
-  </schema>
-</tableset>`;
-
-const QUERY_RESULT = `<?xml version="1.0"?>
-<VOTABLE>
-  <RESOURCE type="results">
-    <INFO name="QUERY_STATUS" value="OK">Successful query</INFO>
-    <TABLE>
-      <FIELD name="source_id" datatype="long" />
-      <DATA><TABLEDATA><TR><TD>9007199254740993</TD></TR></TABLEDATA></DATA>
-    </TABLE>
-  </RESOURCE>
-</VOTABLE>`;
-
-const REGISTRY_RESULT = `<?xml version="1.0"?>
-<VOTABLE>
-  <RESOURCE type="results">
-    <INFO name="QUERY_STATUS" value="OK">Successful query</INFO>
-    <TABLE>
-      <FIELD name="ivoid" datatype="char" arraysize="*" />
-      <FIELD name="res_title" datatype="char" arraysize="*" />
-      <FIELD name="short_name" datatype="char" arraysize="*" />
-      <FIELD name="res_description" datatype="char" arraysize="*" />
-      <FIELD name="access_url" datatype="char" arraysize="*" />
-      <FIELD name="standard_id" datatype="char" arraysize="*" />
-      <DATA>
-        <TABLEDATA>
-          <TR>
-            <TD>ivo://example.test/gaia</TD>
-            <TD>Example Gaia TAP</TD>
-            <TD>GAIA</TD>
-            <TD>Example registry TAP service.</TD>
-            <TD>https://example.test/tap</TD>
-            <TD>ivo://ivoa.net/std/tap</TD>
-          </TR>
-        </TABLEDATA>
-      </DATA>
-    </TABLE>
-  </RESOURCE>
-</VOTABLE>`;

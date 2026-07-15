@@ -360,6 +360,8 @@ const result = await client.query(
 );
 
 console.log(columns.length);
+console.log(await result.fields());
+console.log(await result.overflow());
 console.log(await result.json());
 
 const services = await registry().searchTapServices({

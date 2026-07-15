@@ -42,11 +42,7 @@ export function finalizeStarfetchTableView(
   const view: StarfetchTableViewV1 = {
     ...draft,
     clipping: {
-      applied: reasons.length > 0,
-      includedColumns: columns.length,
-      includedRows: rows.length,
       reasons,
-      serializedBytes: 0,
       sourceColumns,
       sourceRows,
     },
@@ -56,47 +52,30 @@ export function finalizeStarfetchTableView(
     state: sourceRows === 0 ? "empty" : "populated",
   };
 
-  settleSerializedByteLength(view);
-
   if (
-    view.clipping.serializedBytes >
+    serializedByteLength(view) >
     STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes
   ) {
     reasons.push("bytes");
-    view.clipping.applied = true;
 
     while (
       rows.length > 0 &&
-      view.clipping.serializedBytes >
+      serializedByteLength(view) >
         STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes
     ) {
       rows = rows.slice(0, -1);
       view.rows = rows;
-      view.clipping.includedRows = rows.length;
-      settleSerializedByteLength(view);
     }
 
     while (
       columns.length > 0 &&
-      view.clipping.serializedBytes >
+      serializedByteLength(view) >
         STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes
     ) {
       columns = columns.slice(0, -1);
       rows = rows.map((row) => selectColumns(row, columns));
       view.columns = columns;
       view.rows = rows;
-      view.clipping.includedColumns = columns.length;
-      settleSerializedByteLength(view);
-    }
-
-    if (
-      view.clipping.serializedBytes >
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes
-    ) {
-      throw new StarfetchPresentationError(
-        "VIEW_TOO_LARGE",
-        "Table presentation provenance exceeds the serialized byte ceiling.",
-      );
     }
   }
 
@@ -110,12 +89,4 @@ function selectColumns(
   return Object.fromEntries(
     columns.map((column) => [column.key, row[column.key] ?? null]),
   );
-}
-
-function settleSerializedByteLength(view: StarfetchTableViewV1): void {
-  let previous = -1;
-  while (view.clipping.serializedBytes !== previous) {
-    previous = view.clipping.serializedBytes;
-    view.clipping.serializedBytes = serializedByteLength(view);
-  }
 }

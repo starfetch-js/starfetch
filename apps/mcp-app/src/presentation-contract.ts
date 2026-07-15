@@ -11,8 +11,7 @@ export const STARFETCH_TABLE_VIEW_LIMITS_V1 = {
 export type StarfetchPresentationErrorCode =
   | "INVALID_SOURCE"
   | "UNSUPPORTED_FORMAT"
-  | "VALUE_TOO_LONG"
-  | "VIEW_TOO_LARGE";
+  | "VALUE_TOO_LONG";
 
 export class StarfetchPresentationError extends Error {
   readonly code: StarfetchPresentationErrorCode;
@@ -66,16 +65,20 @@ const sourceSchema = z.discriminatedUnion("tool", [
   }),
   z.object({
     tool: z.literal("starfetch_tap_query"),
+    durationMs: z.number().nonnegative(),
     query: z.string(),
     effectiveMaxrec: z.number().int().nonnegative(),
     format: z.literal("json"),
+    overflow: z.boolean().optional(),
     requestFormat: syncFormatSchema,
     runId: z.string().optional(),
     target: targetSchema,
   }),
   z.object({
     tool: z.literal("starfetch_tap_job_fetch"),
+    durationMs: z.number().nonnegative(),
     format: z.literal("json"),
+    overflow: z.boolean().optional(),
     requestFormat: syncFormatSchema,
     sourceFormat: syncFormatSchema,
     job: z.object({
@@ -116,13 +119,9 @@ export const starfetchTableViewV1Schema = z
     source: sourceSchema,
     state: z.enum(["empty", "populated"]),
     clipping: z.object({
-      applied: z.boolean(),
       reasons: z.array(z.enum(["bytes", "columns", "rows"])),
       sourceRows: z.number().int().nonnegative(),
-      includedRows: z.number().int().nonnegative(),
       sourceColumns: z.number().int().nonnegative(),
-      includedColumns: z.number().int().nonnegative(),
-      serializedBytes: z.number().int().nonnegative(),
     }),
   })
   .superRefine((view, context) => {
@@ -165,18 +164,46 @@ export const starfetchTableViewV1Schema = z
         path: ["state"],
       });
     }
+    const rowClippingApplied = view.clipping.sourceRows > view.rows.length;
+    const columnClippingApplied =
+      view.clipping.sourceColumns > view.columns.length;
+    const clippingApplied = rowClippingApplied || columnClippingApplied;
+    const reasons = new Set(view.clipping.reasons);
+    const reasonsMatchClipping =
+      (!rowClippingApplied || reasons.has("rows") || reasons.has("bytes")) &&
+      (!columnClippingApplied ||
+        reasons.has("columns") ||
+        reasons.has("bytes")) &&
+      (rowClippingApplied || !reasons.has("rows")) &&
+      (columnClippingApplied || !reasons.has("columns")) &&
+      (clippingApplied || !reasons.has("bytes"));
+
     if (
-      view.clipping.includedRows !== view.rows.length ||
-      view.clipping.includedColumns !== view.columns.length ||
-      view.clipping.sourceRows < view.clipping.includedRows ||
-      view.clipping.sourceColumns < view.clipping.includedColumns ||
-      view.clipping.applied !== view.clipping.reasons.length > 0 ||
-      new Set(view.clipping.reasons).size !== view.clipping.reasons.length
+      view.clipping.sourceRows < view.rows.length ||
+      view.clipping.sourceColumns < view.columns.length ||
+      reasons.size !== view.clipping.reasons.length ||
+      !reasonsMatchClipping
     ) {
       context.addIssue({
         code: "custom",
         message: "Table view clipping metadata is inconsistent.",
         path: ["clipping"],
+      });
+    }
+
+    if (
+      (view.resultKind === "query-rows" ||
+        view.resultKind === "async-query-rows") &&
+      view.rows.some((row) =>
+        Object.values(row).some(
+          (value) => value !== null && typeof value !== "string",
+        ),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Scientific row values must be strings or null.",
+        path: ["rows"],
       });
     }
 
@@ -198,18 +225,13 @@ export const starfetchTableViewV1Schema = z
       });
     }
 
-    const serializedBytes = serializedByteLength(view);
-    if (serializedBytes > STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes) {
+    if (
+      serializedByteLength(view) >
+      STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes
+    ) {
       context.addIssue({
         code: "custom",
         message: "Table view exceeds the serialized byte ceiling.",
-      });
-    }
-    if (view.clipping.serializedBytes !== serializedBytes) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view serialized byte count is not exact.",
-        path: ["clipping", "serializedBytes"],
       });
     }
   });

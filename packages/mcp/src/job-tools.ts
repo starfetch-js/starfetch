@@ -1,6 +1,5 @@
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  formatTapResult,
   tapRequestFormatForOutput,
   type QueryOptions,
   type TapJobWaitOptions,
@@ -11,20 +10,20 @@ import { z } from "zod/v4";
 import {
   tapJobDataSchema,
   tapJobDiagnosticsSchema,
-  tapJobFetchDiagnosticsSchema,
   tapJobFetchInputSchema,
+  tapJobFetchOutputSchema,
   tapJobInputSchema,
   tapJobStatusSchema,
   tapJobSubmitDiagnosticsSchema,
   tapJobSubmitInputSchema,
   tapJobWaitDiagnosticsSchema,
   tapJobWaitInputSchema,
-  tapQueryDataSchema,
   type TapJobInput,
   type TapJobSubmitInput,
   type TapJobWaitInput,
 } from "./schemas.js";
 import { runTool, success, targetDiagnostics } from "./results.js";
+import { createTapQueryData } from "./query-result.js";
 import type { StarfetchMcpServerOptions } from "./server.js";
 import {
   createTapClient,
@@ -155,32 +154,28 @@ export function registerJobTools(
       description:
         "Fetch a TAP async job result. JSON and JSONL conversion supports VOTable, CSV, and TSV rows.",
       inputSchema: tapJobFetchInputSchema,
-      outputSchema: z.object({
-        data: tapQueryDataSchema,
-        diagnostics: tapJobFetchDiagnosticsSchema,
-      }),
+      outputSchema: tapJobFetchOutputSchema,
       title: "Fetch TAP async job result",
     },
     async (input) =>
       runTool(async () => {
+        const startedAt = performance.now();
         const { client, job } = createJobHandle(input, options);
         const format = input.format;
         const requestFormat = tapRequestFormatForOutput(format);
         const result = await job.fetch({
           format: input.sourceFormat ?? requestFormat,
         });
-        const content = await formatTapResult(result, format);
+        const data = await createTapQueryData(result, format);
 
-        return success(
-          { content, format },
-          {
-            format,
-            job: jobData(job),
-            requestFormat,
-            sourceFormat: result.format,
-            target: targetDiagnostics(client.target),
-          },
-        );
+        return success(data, {
+          durationMs: performance.now() - startedAt,
+          format,
+          job: jobData(job),
+          requestFormat,
+          sourceFormat: result.format,
+          target: targetDiagnostics(client.target),
+        });
       }),
   );
 

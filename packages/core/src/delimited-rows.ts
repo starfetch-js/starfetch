@@ -8,6 +8,18 @@ export function parseDelimitedRows(
   format: TapSyncFormat,
   text: string,
 ): TapRow[] {
+  return parseDelimitedTable(format, text).rows;
+}
+
+export type ParsedDelimitedTable = {
+  fields: string[];
+  rows: TapRow[];
+};
+
+export function parseDelimitedTable(
+  format: TapSyncFormat,
+  text: string,
+): ParsedDelimitedTable {
   const delimiter = delimiterForFormat(format);
 
   if (delimiter === undefined) {
@@ -15,14 +27,18 @@ export function parseDelimitedRows(
   }
 
   try {
+    let fields: string[] = [];
     const rows = parse(text, {
       bom: true,
-      columns: true,
+      columns(header: string[]) {
+        fields = header;
+        return header;
+      },
       delimiter,
       skip_empty_lines: true,
     }) as Record<string, string>[];
 
-    return rows.map(normalizeRow);
+    return { fields, rows: rows.map(normalizeRow) };
   } catch (error) {
     throw new TapParseError(
       `Could not parse ${format.toUpperCase()} TAP result: ${errorMessage(error)}`,

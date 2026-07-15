@@ -226,9 +226,15 @@ describe("Starfetch MCP TAP async job tools", () => {
       expect(result.isError).toBeUndefined();
       expect(result.structuredContent).toMatchObject({
         data: {
+          fields: [
+            { datatype: "long", name: "source_id" },
+            { datatype: "double", name: "ra", unit: "deg" },
+            { datatype: "double", name: "dec", unit: "deg" },
+          ],
           format: "jsonl",
         },
         diagnostics: {
+          durationMs: expect.any(Number),
           format: "jsonl",
           job: {
             id: "job-123",
@@ -270,6 +276,7 @@ describe("Starfetch MCP TAP async job tools", () => {
       expect(result.isError).toBeUndefined();
       expect(result.structuredContent).toMatchObject({
         data: {
+          fields: [{ name: "source_id" }, { name: "ra" }, { name: "dec" }],
           format: "jsonl",
         },
         diagnostics: {

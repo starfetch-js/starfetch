@@ -385,6 +385,7 @@ describe("createStarfetchMcpServer", () => {
           format: "csv",
         },
         diagnostics: {
+          durationMs: expect.any(Number),
           effectiveMaxrec: 100,
           format: "csv",
           query: "SELECT TOP 2 source_id, ra, dec FROM mock_source",
@@ -430,9 +431,16 @@ describe("createStarfetchMcpServer", () => {
         expect(result.isError).toBeUndefined();
         expect(result.structuredContent).toMatchObject({
           data: {
+            fields: [
+              { datatype: "long", name: "source_id" },
+              { datatype: "double", name: "ra", unit: "deg" },
+              { datatype: "double", name: "dec", unit: "deg" },
+            ],
             format,
+            overflow: false,
           },
           diagnostics: {
+            durationMs: expect.any(Number),
             effectiveMaxrec: 2,
             format,
             query: "SELECT TOP 2 * FROM mock_source",

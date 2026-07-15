@@ -64,6 +64,59 @@ describe("TAP result output conversion", () => {
     );
   });
 
+  it("exposes ordered VOTable result fields with their metadata", async () => {
+    const result = await createTapResultFromResponse(
+      "votable",
+      new Response(
+        `<?xml version="1.0"?>
+<VOTABLE>
+  <RESOURCE type="results">
+    <TABLE>
+      <FIELD name="10" datatype="long" ucd="meta.id" />
+      <FIELD name="2" datatype="double" unit="deg" utype="example:angle">
+        <DESCRIPTION>Example angle.</DESCRIPTION>
+      </FIELD>
+      <DATA><TABLEDATA><TR><TD>10</TD><TD>2</TD></TR></TABLEDATA></DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>`,
+        { headers: { "content-type": "application/x-votable+xml" } },
+      ),
+    );
+
+    await expect(result.fields()).resolves.toEqual([
+      { datatype: "long", name: "10", ucd: "meta.id" },
+      {
+        datatype: "double",
+        description: "Example angle.",
+        name: "2",
+        unit: "deg",
+        utype: "example:angle",
+      },
+    ]);
+  });
+
+  it("exposes TAP overflow without treating it as a service error", async () => {
+    const result = await createTapResultFromResponse(
+      "votable",
+      new Response(
+        `<?xml version="1.0"?>
+<VOTABLE>
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OVERFLOW">Result truncated</INFO>
+    <TABLE>
+      <FIELD name="source_id" datatype="long" />
+      <DATA><TABLEDATA><TR><TD>1</TD></TR></TABLEDATA></DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>`,
+        { headers: { "content-type": "application/x-votable+xml" } },
+      ),
+    );
+
+    await expect(result.overflow()).resolves.toBe(true);
+  });
+
   it("converts native CSV and TSV rows to JSON and JSONL", async () => {
     const cases = [
       ["csv", "native.csv", "text/csv"],
@@ -122,6 +175,11 @@ describe("TAP result output conversion", () => {
         { source_id: "1002", ra: "13.5", dec: "-44.75" },
       ]);
       await expect(result.json()).resolves.toEqual(rows);
+      await expect(result.fields()).resolves.toEqual([
+        { name: "source_id" },
+        { name: "ra" },
+        { name: "dec" },
+      ]);
     }
   });
 
