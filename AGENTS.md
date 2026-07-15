@@ -120,9 +120,30 @@ Codex session so the configured `starfetch-local` MCP server is restarted, then
 test through the real surfaced tools such as `mcp__starfetch_local.*`. Do not
 use ad hoc stdio harnesses as proof that Codex can use the local MCP server.
 
+## Issue Value Gate
+
+Before planning or implementing an issue, challenge whether it should exist in
+its current form. A detailed tracker item is not evidence that its scope is
+valuable.
+
+After reading the issue and inspecting the relevant code, answer:
+
+1. What unique failure, user problem, or operational risk does this prevent?
+2. Is that risk already prevented by the architecture, tests, or another issue?
+3. Will planned follow-up work immediately invalidate or duplicate this work?
+4. Does the issue introduce a second source of truth or maintenance artifact?
+5. What is the smallest alternative: implement, shrink, merge, defer, or cancel?
+
+Apply the deletion test at the issue level: if the issue disappears, what
+important behavior becomes unowned?
+
+Lead every issue plan with one recommendation: `Proceed`, `Shrink`, `Merge`,
+`Defer`, or `Cancel`. If the issue has no distinct durable value, recommend
+against implementing it before producing an implementation plan.
+
 ## Development Workflow
 
-Work issue-by-issue. Keep each change aligned with the active GitHub issue and
+Work issue-by-issue. Keep each change aligned with the active tracker issue and
 avoid using one issue to implement future roadmap items.
 
 For implementation work:
