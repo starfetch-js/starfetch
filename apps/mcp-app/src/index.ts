@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { realpathSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { isMcpEntrypoint } from "@starfetch-js/mcp";
 
 import { startStarfetchMcpApp } from "./server.js";
 
@@ -18,7 +17,7 @@ async function runHttpServer(): Promise<void> {
   let shuttingDown = false;
   const shutdown = () => {
     if (shuttingDown) {
-      return;
+      process.exit(1);
     }
 
     shuttingDown = true;
@@ -35,27 +34,12 @@ async function runHttpServer(): Promise<void> {
   process.once("SIGTERM", shutdown);
 }
 
-if (isEntrypoint(import.meta.url, process.argv[1])) {
+if (isMcpEntrypoint(import.meta.url, process.argv[1])) {
   try {
     await runHttpServer();
   } catch (error) {
     console.error(formatError(error));
     process.exitCode = 1;
-  }
-}
-
-function isEntrypoint(
-  moduleUrl: string,
-  argvPath: string | undefined,
-): boolean {
-  if (argvPath === undefined) {
-    return false;
-  }
-
-  try {
-    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(argvPath);
-  } catch {
-    return false;
   }
 }
 

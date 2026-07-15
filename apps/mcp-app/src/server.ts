@@ -1,13 +1,17 @@
-import { type Server } from "node:http";
-
-import { serve } from "@hono/node-server";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createStarfetchMcpServer } from "@starfetch-js/mcp";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 
-export type Environment = Readonly<Record<string, string | undefined>>;
+import { loadHttpConfig, type Environment } from "./config.js";
+import {
+  createExchangeRegistry,
+  type ExchangeRegistry,
+} from "./exchange-lifecycle.js";
+import { closeHttpListener, listen, type HttpListener } from "./listener.js";
+
+export type { Environment } from "./config.js";
 
 export type RunningStarfetchMcpApp = Readonly<{
   origin: URL;
@@ -15,13 +19,6 @@ export type RunningStarfetchMcpApp = Readonly<{
 }>;
 
 type OwnedMcpServer = ReturnType<typeof createStarfetchMcpServer>;
-type StarfetchMcpServerOptions = NonNullable<
-  Parameters<typeof createStarfetchMcpServer>[0]
->;
-
-type OwnedMcpExchange = Readonly<{
-  close(): Promise<void>;
-}>;
 
 type HttpRequestLog = Readonly<{
   durationMs: number;
@@ -32,24 +29,30 @@ type HttpRequestLog = Readonly<{
   status: number;
 }>;
 
+type McpCleanupFailureLog = Readonly<{
+  event: "mcp_cleanup_failed";
+  requestId: string;
+}>;
+
+type ServerLog = HttpRequestLog | McpCleanupFailureLog;
+
 type ServerDependencies = Readonly<{
-  createMcpServer?: (options?: StarfetchMcpServerOptions) => OwnedMcpServer;
-  writeLog?: (event: HttpRequestLog) => void;
+  createMcpServer?: () => OwnedMcpServer;
+  writeLog?: (event: ServerLog) => void;
 }>;
 
 export async function startStarfetchMcpApp(
   environment: Environment = process.env,
   dependencies: ServerDependencies = {},
 ): Promise<RunningStarfetchMcpApp> {
-  const host = parseHost(environment.HOST);
-  const port = parsePort(environment.PORT);
-  const shutdownGraceMs = parseShutdownGrace(environment.SHUTDOWN_GRACE_MS);
-  const allowedOrigins = parseAllowedOrigins(environment.ALLOWED_ORIGINS);
+  const { allowedOrigins, host, port, shutdownGraceMs } =
+    loadHttpConfig(environment);
   const createMcpServer =
     dependencies.createMcpServer ?? createStarfetchMcpServer;
   const writeLog = dependencies.writeLog ?? writeJsonLog;
-  const activeExchanges = new Set<OwnedMcpExchange>();
-  const drainWaiters = new Set<() => void>();
+  const exchanges = createExchangeRegistry((requestId) =>
+    writeLog({ event: "mcp_cleanup_failed", requestId }),
+  );
   const app = new Hono();
   let accepting = true;
 
@@ -119,30 +122,16 @@ export async function startStarfetchMcpApp(
 
     const mcpServer = createMcpServer();
     const transport = new WebStandardStreamableHTTPServerTransport({});
-    let closePromise: Promise<void> | undefined;
-    const exchange: OwnedMcpExchange = {
-      close() {
-        closePromise ??= closeMcpExchange(
-          mcpServer,
-          exchange,
-          activeExchanges,
-          drainWaiters,
-          context.req.raw.signal,
-          abortListener,
-        );
-        return closePromise;
-      },
-    };
-    const abortListener = () => void exchange.close();
-    context.req.raw.signal.addEventListener("abort", abortListener, {
-      once: true,
-    });
-    activeExchanges.add(exchange);
+    const exchange = exchanges.track(
+      mcpServer,
+      context.req.raw.signal,
+      context.get("requestId"),
+    );
 
     try {
       await mcpServer.connect(transport);
       const response = await transport.handleRequest(context.req.raw);
-      return await finalizeWithResponse(response, exchange.close);
+      return await exchange.ownResponse(response);
     } catch (error) {
       await exchange.close();
       throw error;
@@ -165,7 +154,7 @@ export async function startStarfetchMcpApp(
   const listener = await listen(app, host, port);
   const address = listener.address();
   if (address === null || typeof address === "string") {
-    await closeListener(listener);
+    await closeHttpListener(listener);
     throw new Error("Expected the MCP HTTP listener to use a TCP address.");
   }
 
@@ -175,100 +164,10 @@ export async function startStarfetchMcpApp(
     origin: new URL(`http://${formatHostname(host)}:${address.port}`),
     close() {
       accepting = false;
-      closePromise ??= closeApp(
-        listener,
-        activeExchanges,
-        drainWaiters,
-        shutdownGraceMs,
-      );
+      closePromise ??= closeApp(listener, exchanges, shutdownGraceMs);
       return closePromise;
     },
   };
-}
-
-function parsePort(value: string | undefined): number {
-  if (value === undefined) {
-    return 3000;
-  }
-
-  if (!/^\d+$/.test(value)) {
-    throw new Error("PORT must be an integer between 0 and 65535.");
-  }
-
-  const port = Number(value);
-  if (!Number.isSafeInteger(port) || port > 65_535) {
-    throw new Error("PORT must be an integer between 0 and 65535.");
-  }
-
-  return port;
-}
-
-function parseHost(value: string | undefined): string {
-  if (value === undefined) {
-    return "127.0.0.1";
-  }
-
-  if (value === "" || value !== value.trim()) {
-    throw new Error("HOST must be a non-empty hostname or IP address.");
-  }
-
-  return value;
-}
-
-function parseShutdownGrace(value: string | undefined): number {
-  if (value === undefined) {
-    return 10_000;
-  }
-
-  if (!/^\d+$/.test(value)) {
-    throw new Error(
-      "SHUTDOWN_GRACE_MS must be an integer between 1 and 60000.",
-    );
-  }
-
-  const milliseconds = Number(value);
-  if (
-    !Number.isSafeInteger(milliseconds) ||
-    milliseconds < 1 ||
-    milliseconds > 60_000
-  ) {
-    throw new Error(
-      "SHUTDOWN_GRACE_MS must be an integer between 1 and 60000.",
-    );
-  }
-
-  return milliseconds;
-}
-
-function parseAllowedOrigins(value: string | undefined): Set<string> {
-  if (value === undefined || value.trim() === "") {
-    return new Set();
-  }
-
-  return new Set(
-    value.split(",").map((candidate) => {
-      const origin = candidate.trim();
-      let url: URL;
-      try {
-        url = new URL(origin);
-      } catch {
-        throw new Error(
-          "ALLOWED_ORIGINS must contain comma-separated HTTP(S) origins.",
-        );
-      }
-
-      if (
-        (url.protocol !== "http:" && url.protocol !== "https:") ||
-        url.origin !== origin
-      ) {
-        throw new Error(
-          "ALLOWED_ORIGINS must contain comma-separated HTTP(S) origins.",
-        );
-      }
-
-      return origin;
-    }),
-  );
 }
 
 function isLoopbackHost(host: string): boolean {
@@ -292,144 +191,47 @@ function isAllowedLoopbackHostHeader(value: string | undefined): boolean {
   }
 }
 
-function listen(app: Hono, host: string, port: number): Promise<Server> {
-  return new Promise((resolve, reject) => {
-    const listener = serve(
-      {
-        fetch: app.fetch,
-        hostname: host,
-        port,
-      },
-      () => resolve(listener as Server),
-    );
-    listener.once("error", reject);
-  });
-}
-
 async function closeApp(
-  listener: Server,
-  activeExchanges: Set<OwnedMcpExchange>,
-  drainWaiters: Set<() => void>,
+  listener: HttpListener,
+  exchanges: ExchangeRegistry,
   shutdownGraceMs: number,
 ): Promise<void> {
-  const listenerClosed = closeListener(listener);
-  const drained = await waitForDrain(
-    activeExchanges,
-    drainWaiters,
-    shutdownGraceMs,
-  );
+  const deadline = performance.now() + shutdownGraceMs;
+  const listenerClosed = closeHttpListener(listener);
+  const drained = await exchanges.waitForIdle(shutdownGraceMs);
   if (drained) {
     listener.closeIdleConnections();
   } else {
-    await Promise.allSettled(
-      [...activeExchanges].map((exchange) => exchange.close()),
-    );
+    exchanges.forceClose();
     listener.closeAllConnections();
   }
-  await listenerClosed;
-}
 
-async function closeMcpExchange(
-  server: OwnedMcpServer,
-  exchange: OwnedMcpExchange,
-  activeExchanges: Set<OwnedMcpExchange>,
-  drainWaiters: Set<() => void>,
-  signal: AbortSignal,
-  abortListener: () => void,
-): Promise<void> {
-  signal.removeEventListener("abort", abortListener);
-  activeExchanges.delete(exchange);
-  try {
-    await server.close();
-  } finally {
-    if (activeExchanges.size === 0) {
-      for (const resolve of drainWaiters) {
-        resolve();
-      }
-      drainWaiters.clear();
-    }
+  const listenerDidClose = await settlesWithin(
+    listenerClosed,
+    Math.max(0, deadline - performance.now()),
+  );
+  if (!listenerDidClose) {
+    exchanges.forceClose();
+    listener.closeAllConnections();
   }
 }
 
-function waitForDrain(
-  activeExchanges: Set<OwnedMcpExchange>,
-  drainWaiters: Set<() => void>,
-  shutdownGraceMs: number,
+function settlesWithin(
+  operation: Promise<void>,
+  milliseconds: number,
 ): Promise<boolean> {
-  if (activeExchanges.size === 0) {
-    return Promise.resolve(true);
-  }
-
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (drained: boolean) => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      clearTimeout(timeout);
-      drainWaiters.delete(onDrained);
-      resolve(drained);
-    };
-    const onDrained = () => finish(true);
-    const timeout = setTimeout(() => finish(false), shutdownGraceMs);
-    drainWaiters.add(onDrained);
-  });
-}
-
-async function finalizeWithResponse(
-  response: Response,
-  close: () => Promise<void>,
-): Promise<Response> {
-  if (response.body === null) {
-    await close();
-    return response;
-  }
-
-  const reader = response.body.getReader();
-  const body = new ReadableStream<Uint8Array>({
-    async cancel(reason) {
-      try {
-        await reader.cancel(reason);
-      } finally {
-        await close();
-      }
-    },
-    async pull(controller) {
-      try {
-        const result = await reader.read();
-        if (result.done) {
-          await close();
-          controller.close();
-          return;
-        }
-
-        controller.enqueue(result.value);
-      } catch (error) {
-        await close();
-        controller.error(error);
-      }
-    },
-  });
-
-  return new Response(body, {
-    headers: response.headers,
-    status: response.status,
-    statusText: response.statusText,
-  });
-}
-
-function closeListener(listener: Server): Promise<void> {
   return new Promise((resolve, reject) => {
-    listener.close((error) => {
-      if (error) {
+    const timeout = setTimeout(() => resolve(false), milliseconds);
+    void operation.then(
+      () => {
+        clearTimeout(timeout);
+        resolve(true);
+      },
+      (error: unknown) => {
+        clearTimeout(timeout);
         reject(error);
-        return;
-      }
-
-      resolve();
-    });
+      },
+    );
   });
 }
 
@@ -437,6 +239,6 @@ function formatHostname(host: string): string {
   return host.includes(":") ? `[${host}]` : host;
 }
 
-function writeJsonLog(event: HttpRequestLog): void {
+function writeJsonLog(event: ServerLog): void {
   console.info(JSON.stringify(event));
 }

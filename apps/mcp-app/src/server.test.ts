@@ -229,6 +229,54 @@ describe("Starfetch MCP HTTP app", () => {
     }
   });
 
+  it("preserves a successful response when MCP cleanup fails", async () => {
+    const events: unknown[] = [];
+    const mcpServer = createStarfetchMcpServer();
+    mcpServer.close = async () => {
+      throw new Error("private cleanup detail");
+    };
+    const app = await startStarfetchMcpApp(
+      {
+        HOST: "127.0.0.1",
+        PORT: "0",
+      },
+      {
+        createMcpServer: () => mcpServer,
+        writeLog: (event) => events.push(event),
+      },
+    );
+
+    try {
+      const response = await fetch(new URL("/mcp", app.origin), {
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: LATEST_PROTOCOL_VERSION,
+            capabilities: {},
+            clientInfo: { name: "cleanup-failure-test", version: "0.0.0" },
+          },
+        }),
+        headers: {
+          accept: "application/json, text/event-stream",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain('"name":"starfetch"');
+      expect(events).toContainEqual({
+        event: "mcp_cleanup_failed",
+        requestId: expect.any(String),
+      });
+      expect(JSON.stringify(events)).not.toContain("private cleanup detail");
+    } finally {
+      await app.close();
+    }
+  });
+
   it("echoes safe request IDs and replaces invalid values", async () => {
     const app = await startStarfetchMcpApp({
       HOST: "127.0.0.1",
@@ -446,6 +494,38 @@ describe("Starfetch MCP HTTP app", () => {
       ]),
     ).resolves.toBeUndefined();
     expect(closeCount).toBe(1);
+  });
+
+  it("bounds shutdown when MCP cleanup does not settle", async () => {
+    const mcpServer = createStarfetchMcpServer();
+    let releaseClose: () => void = () => undefined;
+    mcpServer.close = () =>
+      new Promise<void>((resolve) => {
+        releaseClose = resolve;
+      });
+    const app = await startStarfetchMcpApp(
+      {
+        HOST: "127.0.0.1",
+        PORT: "0",
+        SHUTDOWN_GRACE_MS: "20",
+      },
+      {
+        createMcpServer: () => mcpServer,
+      },
+    );
+    await fetch(new URL("/mcp", app.origin), {
+      headers: { accept: "text/event-stream" },
+    });
+
+    const shutdown = app.close();
+    const result = await Promise.race([
+      shutdown.then(() => "closed" as const),
+      delay(150).then(() => "timed-out" as const),
+    ]);
+    releaseClose();
+    await shutdown;
+
+    expect(result).toBe("closed");
   });
 
   it("shares one idempotent shutdown operation", async () => {
