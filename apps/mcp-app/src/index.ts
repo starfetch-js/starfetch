@@ -4,6 +4,16 @@ import { isMcpEntrypoint } from "@starfetch-js/mcp";
 import { startStarfetchMcpApp } from "./server.js";
 
 export { startStarfetchMcpApp } from "./server.js";
+export {
+  createStarfetchTableView,
+  STARFETCH_TABLE_VIEW_LIMITS_V1,
+  StarfetchPresentationError,
+  starfetchTableViewV1Schema,
+} from "./presentation.js";
+export type {
+  StarfetchPresentationErrorCode,
+  StarfetchTableViewV1,
+} from "./presentation.js";
 
 async function runHttpServer(): Promise<void> {
   const app = await startStarfetchMcpApp();
