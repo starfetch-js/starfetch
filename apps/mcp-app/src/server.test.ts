@@ -50,13 +50,13 @@ describe("Starfetch MCP HTTP app", () => {
     }
   });
 
-  it("serves the canonical Starfetch tools through Streamable HTTP", async () => {
+  it("serves the canonical Starfetch surface through Streamable HTTP", async () => {
     const app = await startStarfetchMcpApp({
       HOST: "127.0.0.1",
       PORT: "0",
     });
     const client = new Client({
-      name: "starfetch-mcp-tool-test",
+      name: "starfetch-mcp-surface-test",
       version: "0.0.0",
     });
 
@@ -68,7 +68,7 @@ describe("Starfetch MCP HTTP app", () => {
       );
 
       const tools = await client.listTools();
-      const result = await client.callTool({
+      const toolResult = await client.callTool({
         name: "starfetch_list_presets",
         arguments: {},
       });
@@ -76,39 +76,17 @@ describe("Starfetch MCP HTTP app", () => {
       expect(tools.tools.map((tool) => tool.name)).toContain(
         "starfetch_list_presets",
       );
-      expect(result.isError).not.toBe(true);
-    } finally {
-      await client.close();
-      await app.close();
-    }
-  });
-
-  it("serves generated Starfetch guidance through Streamable HTTP", async () => {
-    const app = await startStarfetchMcpApp({
-      HOST: "127.0.0.1",
-      PORT: "0",
-    });
-    const client = new Client({
-      name: "starfetch-mcp-guidance-test",
-      version: "0.0.0",
-    });
-
-    try {
-      await client.connect(
-        new StreamableHTTPClientTransport(
-          new URL("/mcp", app.origin),
-        ) as Transport,
-      );
+      expect(toolResult.isError).not.toBe(true);
 
       const resources = await client.listResources();
       expect(resources.resources.map((resource) => resource.uri)).toContain(
         "starfetch://guides/query-safety",
       );
 
-      const result = await client.readResource({
+      const guidance = await client.readResource({
         uri: "starfetch://guides/query-safety",
       });
-      expect(result.contents).toEqual([
+      expect(guidance.contents).toEqual([
         expect.objectContaining({
           mimeType: "text/markdown",
           text: expect.stringContaining(

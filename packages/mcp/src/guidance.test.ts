@@ -32,38 +32,27 @@ describe("Starfetch MCP guidance", () => {
         expect(resource.description).toMatch(/\S/);
       }
 
-      const exposedContents: string[] = [];
-      for (const uri of uris) {
-        const result = await client.readResource({ uri });
-        expect(result.contents).toHaveLength(1);
-
-        const [content] = result.contents;
-        expect(content).toEqual(
-          expect.objectContaining({
-            mimeType: "text/markdown",
-            uri,
-          }),
-        );
-        if (content === undefined || !("text" in content)) {
-          throw new Error(`Expected Markdown text for ${uri}`);
-        }
-        exposedContents.push(content.text);
-      }
-
-      const canonicalContents = await Promise.all(
-        starfetchSkillPaths.map((path) => readStarfetchSkillFile(path)),
+      const [exposedEntries, canonicalEntries] = await Promise.all([
+        Promise.all(
+          uris.map(
+            async (uri) =>
+              [uri, await readMarkdownResource(client, uri)] as const,
+          ),
+        ),
+        Promise.all(
+          starfetchSkillPaths.map(
+            async (path) => [path, await readStarfetchSkillFile(path)] as const,
+          ),
+        ),
+      ]);
+      const exposedByUri = new Map(exposedEntries);
+      const canonicalByPath = new Map(canonicalEntries);
+      expect([...exposedByUri.values()].sort()).toEqual(
+        [...canonicalByPath.values()].sort(),
       );
-      expect(exposedContents.sort()).toEqual(canonicalContents.sort());
 
       for (const [path, uri] of publishedResourceUris) {
-        const result = await client.readResource({ uri });
-        expect(result.contents).toEqual([
-          expect.objectContaining({
-            mimeType: "text/markdown",
-            text: await readStarfetchSkillFile(path),
-            uri,
-          }),
-        ]);
+        expect(exposedByUri.get(uri)).toBe(canonicalByPath.get(path));
       }
     });
   });
@@ -111,6 +100,26 @@ describe("Starfetch MCP guidance", () => {
     });
   });
 });
+
+async function readMarkdownResource(
+  client: Client,
+  uri: string,
+): Promise<string> {
+  const result = await client.readResource({ uri });
+  expect(result.contents).toHaveLength(1);
+
+  const [content] = result.contents;
+  expect(content).toEqual(
+    expect.objectContaining({
+      mimeType: "text/markdown",
+      uri,
+    }),
+  );
+  if (content === undefined || !("text" in content)) {
+    throw new Error(`Expected Markdown text for ${uri}`);
+  }
+  return content.text;
+}
 
 async function withClient(
   run: (client: Client) => Promise<void>,
