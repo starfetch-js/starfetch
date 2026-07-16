@@ -21,7 +21,8 @@
     "release:version": "lerna version",
     "release:publish": "lerna publish from-git --yes",
     "test:live:tap": "node scripts/run-live-tap-tests.mjs",
-    "smoke:cli": "node packages/cli/dist/index.js --help"
+    "smoke:cli": "node packages/cli/dist/index.js --help",
+    "smoke:container": "node scripts/smoke-mcp-app-container.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",

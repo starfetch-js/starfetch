@@ -523,6 +523,19 @@ npm --workspace @starfetch-js/mcp-app run check
 npm --workspace @starfetch-js/mcp-app run test:browser
 ```
 
+Build and smoke-test the production Linux container with Docker:
+
+```sh
+npm run smoke:container
+```
+
+Trusted pushes publish the same container to
+`ghcr.io/starfetch-js/starfetch-mcp-app` with an immutable commit tag, OCI
+digest, SBOM, and GitHub provenance attestation. Deployment automation consumes
+the digest and source commit; it must never rebuild application source or
+deploy a mutable tag. Pull requests build through the normal checks but do not
+publish an image.
+
 For ChatGPT Developer Mode or another remote MCP Apps host, expose the local MCP
 endpoint through HTTPS, add the resulting `/mcp` URL to the host, call a
 canonical Starfetch tool, then pass its bounded table view to
