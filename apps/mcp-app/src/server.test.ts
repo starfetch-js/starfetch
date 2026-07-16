@@ -162,7 +162,7 @@ describe("Starfetch MCP HTTP app", () => {
         },
         method: "POST",
       });
-      const health = await fetch(new URL("/healthz", app.origin));
+      const health = await fetch(new URL("/health", app.origin));
 
       expect(invalid.status).toBe(400);
       await expect(invalid.json()).resolves.toMatchObject({
@@ -239,7 +239,7 @@ describe("Starfetch MCP HTTP app", () => {
     );
 
     try {
-      const response = await fetch(new URL("/healthz", app.origin));
+      const response = await fetch(new URL("/health", app.origin));
 
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({ status: "ok" });
@@ -348,10 +348,10 @@ describe("Starfetch MCP HTTP app", () => {
     });
 
     try {
-      const accepted = await fetch(new URL("/healthz", app.origin), {
+      const accepted = await fetch(new URL("/health", app.origin), {
         headers: { "x-request-id": "accepted-request-id" },
       });
-      const replaced = await fetch(new URL("/healthz", app.origin), {
+      const replaced = await fetch(new URL("/health", app.origin), {
         headers: { "x-request-id": "not safe!" },
       });
 
@@ -386,7 +386,7 @@ describe("Starfetch MCP HTTP app", () => {
         },
         method: "OPTIONS",
       });
-      const denied = await fetch(new URL("/healthz", app.origin), {
+      const denied = await fetch(new URL("/health", app.origin), {
         headers: { origin: "https://denied.example" },
       });
 
@@ -411,7 +411,7 @@ describe("Starfetch MCP HTTP app", () => {
 
     try {
       const status = await requestStatus(
-        new URL("/healthz", app.origin),
+        new URL("/health", app.origin),
         "attacker.example",
       );
 
@@ -434,7 +434,7 @@ describe("Starfetch MCP HTTP app", () => {
     );
 
     try {
-      await fetch(new URL("/healthz?secret=not-logged", app.origin), {
+      await fetch(new URL("/health?secret=not-logged", app.origin), {
         headers: { "x-request-id": "bounded-log-id" },
       });
 
@@ -443,7 +443,7 @@ describe("Starfetch MCP HTTP app", () => {
         durationMs: expect.any(Number),
         event: "http_request",
         method: "GET",
-        path: "/healthz",
+        path: "/health",
         requestId: "bounded-log-id",
         status: 200,
       });

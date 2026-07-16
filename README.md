@@ -437,7 +437,7 @@ npm run dev:http
 ```
 
 It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
-`http://127.0.0.1:3000/healthz`. Each MCP request gets a fresh stateless
+`http://127.0.0.1:3000/health`. Each MCP request gets a fresh stateless
 `@starfetch-js/mcp` server. The hosted surface keeps the 12 canonical
 Starfetch tools unchanged and adds `starfetch_render_table`, which presents an
 existing bounded `StarfetchTableViewV1` through the immutable

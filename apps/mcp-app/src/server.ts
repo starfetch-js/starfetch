@@ -174,7 +174,7 @@ export async function startStarfetchMcpApp(
         context.json({ error: "Request body too large" }, 413),
     }),
   );
-  app.get("/healthz", (context) => context.json({ status: "ok" }));
+  app.get("/health", (context) => context.json({ status: "ok" }));
 
   app.all("/mcp", async (context) => {
     if (!accepting) {

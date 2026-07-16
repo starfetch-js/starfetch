@@ -72,7 +72,7 @@ jobs:
             '{
               architecture: "linux/amd64",
               digest: $digest,
-              healthRoute: "/healthz",
+              healthRoute: "/health",
               image: $image,
               mcpRoute: "/mcp",
               node: "22.22.0",

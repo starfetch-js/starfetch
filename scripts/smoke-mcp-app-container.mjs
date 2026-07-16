@@ -101,7 +101,7 @@ async function waitForHealth(origin) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       const response = await globalThis.fetch(
-        new globalThis.URL("/healthz", origin),
+        new globalThis.URL("/health", origin),
       );
       if (response.ok) {
         return response;
