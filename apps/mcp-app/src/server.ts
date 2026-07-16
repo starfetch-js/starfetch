@@ -10,6 +10,7 @@ import {
   type ExchangeRegistry,
 } from "./exchange-lifecycle.js";
 import { closeHttpListener, listen, type HttpListener } from "./listener.js";
+import { createHostedStarfetchMcpServer } from "./hosted-server.js";
 
 export type { Environment } from "./config.js";
 
@@ -48,7 +49,7 @@ export async function startStarfetchMcpApp(
   const { allowedOrigins, host, port, shutdownGraceMs } =
     loadHttpConfig(environment);
   const createMcpServer =
-    dependencies.createMcpServer ?? createStarfetchMcpServer;
+    dependencies.createMcpServer ?? createHostedStarfetchMcpServer;
   const writeLog = dependencies.writeLog ?? writeJsonLog;
   const exchanges = createExchangeRegistry((requestId) =>
     writeLog({ event: "mcp_cleanup_failed", requestId }),

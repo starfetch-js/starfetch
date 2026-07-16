@@ -5,6 +5,8 @@ node_modules/
 dist/
 build/
 coverage/
+playwright-report/
+test-results/
 .nyc_output/
 .tmp/
 .cache/

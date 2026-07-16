@@ -431,7 +431,13 @@ npm run dev:http
 
 It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
 `http://127.0.0.1:3000/healthz`. Each MCP request gets a fresh stateless
-`@starfetch-js/mcp` server. Configuration is environment-only:
+`@starfetch-js/mcp` server. The hosted surface keeps the 12 canonical
+Starfetch tools unchanged and adds `starfetch_render_table`, which presents an
+existing bounded `StarfetchTableViewV1` through the immutable
+`ui://starfetch/table/v1` MCP Apps resource. The renderer never submits TAP
+requests; ordinary MCP clients can continue using the canonical text and
+structured results without loading the widget. Configuration is
+environment-only:
 
 - `HOST` defaults to `127.0.0.1`; set `0.0.0.0` explicitly for all interfaces.
 - `PORT` defaults to `3000`.
@@ -439,12 +445,92 @@ It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
   defaults to none.
 - `SHUTDOWN_GRACE_MS` defaults to `10000` and accepts `1` through `60000`.
 
-To inspect the endpoint, start the app and run MCP Inspector in another shell:
+To verify the protocol surface without opening the widget, start the app and
+run MCP Inspector's CLI in another shell:
 
 ```sh
 npx -y @modelcontextprotocol/inspector@latest --cli http://127.0.0.1:3000/mcp --transport http --method tools/list
 npx -y @modelcontextprotocol/inspector@latest --cli http://127.0.0.1:3000/mcp --transport http --method tools/call --tool-name starfetch_list_presets
 ```
+
+To render the widget in MCP Inspector's Apps tab:
+
+1. Keep `npm run dev:http` running, then start the Inspector UI without a stdio
+   server command:
+
+   ```sh
+   npx -y @modelcontextprotocol/inspector@latest
+   ```
+
+2. In Inspector, select **Via Proxy**, choose **Streamable HTTP**, enter
+   `http://127.0.0.1:3000/mcp`, leave authentication empty, and connect.
+3. Open **Apps**, select **Refresh Apps**, and choose
+   `starfetch_render_table`. The Apps tab lists UI-linked tools rather than the
+   server name.
+4. Paste a valid bounded table view into **App Input** and select **Open App**.
+   This minimal preset view exercises the widget without making a live TAP
+   request:
+
+   ```json
+   {
+     "contractVersion": 1,
+     "resultKind": "presets",
+     "title": "TAP service presets",
+     "columns": [
+       { "key": "name", "label": "Name" },
+       { "key": "url", "label": "TAP URL" }
+     ],
+     "rows": [
+       {
+         "name": "gaia",
+         "url": "https://gea.esac.esa.int/tap-server/tap"
+       }
+     ],
+     "source": { "tool": "starfetch_list_presets" },
+     "state": "populated",
+     "clipping": {
+       "reasons": [],
+       "sourceRows": 1,
+       "sourceColumns": 2
+     }
+   }
+   ```
+
+The Apps tab requires the hosted Streamable HTTP endpoint; the canonical stdio
+server exposes the core Starfetch tools without UI resources. Inspector's
+**Via Proxy** mode works with the default origin policy. To use **Direct** mode,
+allow Inspector's browser origins explicitly when starting the app:
+
+```sh
+ALLOWED_ORIGINS=http://localhost:6274,http://127.0.0.1:6274 npm run dev:http
+```
+
+The widget is a portable MCP Apps client. It uses the standard host bridge for
+tool results, theme variables, display-mode requests, clipboard access, and file
+downloads, so the table has no direct dependency on a ChatGPT- or Claude-only
+browser global. Its React UI uses semantic table markup, TanStack Table sorting,
+TanStack Virtual row rendering for larger results, and fine-grained Shiki SQL
+highlighting for exact ADQL. Inline mode exposes the complete bounded result
+through a capped two-axis scroll viewport. A labeled `Show more` or `Show less`
+control below the table requests the corresponding host display mode. The
+resource declares no network or static-resource domains and requests only
+clipboard-write permission.
+
+Run its unit, single-file build, and browser-host acceptance checks with:
+
+```sh
+npm --workspace @starfetch-js/mcp-app run check
+npm --workspace @starfetch-js/mcp-app run test:browser
+```
+
+For ChatGPT Developer Mode or another remote MCP Apps host, expose the local MCP
+endpoint through HTTPS, add the resulting `/mcp` URL to the host, call a
+canonical Starfetch tool, then pass its bounded table view to
+`starfetch_render_table`. Verify light and dark themes, `Show more` and `Show
+less`, horizontal scrolling, sorting, highlighted ADQL and copying, and TSV,
+CSV, and JSON copy and download actions. Host-specific visual differences
+should be handled through the bridge theme variables rather than a second
+component implementation.
 
 For a temporary remote URL, the development machine can run:
 

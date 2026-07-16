@@ -5,6 +5,10 @@ import { startStarfetchMcpApp } from "./server.js";
 
 export { startStarfetchMcpApp } from "./server.js";
 export {
+  createHostedStarfetchMcpServer,
+  STARFETCH_TABLE_RESOURCE_URI,
+} from "./hosted-server.js";
+export {
   createStarfetchTableView,
   STARFETCH_TABLE_VIEW_LIMITS_V1,
   StarfetchPresentationError,
