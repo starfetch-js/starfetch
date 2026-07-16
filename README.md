@@ -529,13 +529,8 @@ Build and smoke-test the production Linux container with Docker:
 npm run smoke:container
 ```
 
-Trusted pushes to `project/starfetch-mcp-app` and `main` publish the same container to
-`ghcr.io/starfetch-js/starfetch-mcp-app` with an immutable commit tag, OCI
-digest, SBOM, and GitHub provenance attestation. Deployment automation consumes
-the digest, source commit, and attested source ref; it must never rebuild
-application source or deploy a mutable tag. Staging accepts only the project
-branch, while release promotion accepts only `main`. Other pull-request branches
-build through the normal checks but do not publish an image.
+The image workflow publishes immutable containers to
+`ghcr.io/starfetch-js/starfetch-mcp-app`.
 
 For ChatGPT Developer Mode or another remote MCP Apps host, expose the local MCP
 endpoint through HTTPS, add the resulting `/mcp` URL to the host, call a
