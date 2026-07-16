@@ -3,6 +3,7 @@ export type Environment = Readonly<Record<string, string | undefined>>;
 export type HttpConfig = Readonly<{
   allowedOrigins: ReadonlySet<string>;
   host: string;
+  jobCapabilitySecret?: string;
   port: number;
   shutdownGraceMs: number;
 }>;
@@ -11,6 +12,9 @@ export function loadHttpConfig(environment: Environment): HttpConfig {
   return {
     allowedOrigins: parseAllowedOrigins(environment.ALLOWED_ORIGINS),
     host: parseHost(environment.HOST),
+    ...(environment.STARFETCH_JOB_CAPABILITY_SECRET === undefined
+      ? {}
+      : { jobCapabilitySecret: environment.STARFETCH_JOB_CAPABILITY_SECRET }),
     port: parsePort(environment.PORT),
     shutdownGraceMs: parseShutdownGrace(environment.SHUTDOWN_GRACE_MS),
   };

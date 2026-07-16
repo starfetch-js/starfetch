@@ -5,7 +5,10 @@ import {
   registerAppTool,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
-import { createStarfetchMcpServer } from "@starfetch-js/mcp";
+import {
+  createStarfetchMcpServer,
+  type StarfetchMcpServerOptions,
+} from "@starfetch-js/mcp";
 
 import {
   starfetchTableViewV1Schema,
@@ -16,12 +19,13 @@ export const STARFETCH_TABLE_RESOURCE_URI = "ui://starfetch/table/v1";
 
 export type HostedStarfetchMcpServerOptions = Readonly<{
   loadWidgetHtml?: () => Promise<string>;
+  mcp?: StarfetchMcpServerOptions;
 }>;
 
 export function createHostedStarfetchMcpServer(
   options: HostedStarfetchMcpServerOptions = {},
 ): ReturnType<typeof createStarfetchMcpServer> {
-  const server = createStarfetchMcpServer();
+  const server = createStarfetchMcpServer(options.mcp);
   const loadWidgetHtml = options.loadWidgetHtml ?? loadBuiltWidgetHtml;
   const resourceMeta = {
     csp: {

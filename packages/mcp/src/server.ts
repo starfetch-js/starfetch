@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { registerStarfetchGuidance } from "./guidance.js";
+import {
+  type StarfetchMcpPolicy,
+  unrestrictedStarfetchMcpPolicy,
+} from "./policy.js";
 import { registerStarfetchTools } from "./tools.js";
+
+export type { JobCapabilityOperation, StarfetchMcpPolicy } from "./policy.js";
 
 /** MCP server name advertised to clients. */
 export const mcpServerName = "starfetch";
@@ -17,6 +23,15 @@ const serverInstructions =
 export type StarfetchMcpServerOptions = {
   /** Custom fetch implementation used by Starfetch core operations. */
   fetch?: typeof fetch;
+  /** Optional operational policy, used by hosted deployments. */
+  policy?: StarfetchMcpPolicy;
+};
+
+export type StarfetchMcpRuntimeOptions = Omit<
+  StarfetchMcpServerOptions,
+  "policy"
+> & {
+  policy: StarfetchMcpPolicy;
 };
 
 /**
@@ -39,7 +54,12 @@ export function createStarfetchMcpServer(
     },
   );
 
-  registerStarfetchTools(server, options);
+  const runtimeOptions: StarfetchMcpRuntimeOptions = {
+    ...options,
+    policy: options.policy ?? unrestrictedStarfetchMcpPolicy,
+  };
+
+  registerStarfetchTools(server, runtimeOptions);
   registerStarfetchGuidance(server);
 
   return server;

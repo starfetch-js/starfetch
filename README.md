@@ -174,6 +174,13 @@ exact submitted ADQL and effective row limit for reproduction and review.
 Synchronous queries and async submissions send TAP `MAXREC=100` when `maxrec`
 is omitted.
 
+The hosted HTTP app returns an opaque `jobCapability` with each async
+submission. Supply that value unchanged to every hosted status, wait, fetch,
+or delete call. The capability remains usable while the remote job exists and
+the hosted secret is unchanged. Hosted deletion is marked destructive so MCP
+clients can obtain user approval. The stdio MCP server and CLI keep their
+existing job-reference behavior and do not advertise hosted-only fields.
+
 ## Why Starfetch?
 
 Starfetch is a useful middle layer when an agent needs live public catalog data
@@ -444,6 +451,23 @@ environment-only:
 - `ALLOWED_ORIGINS` is a comma-separated list of exact browser origins and
   defaults to none.
 - `SHUTDOWN_GRACE_MS` defaults to `10000` and accepts `1` through `60000`.
+- `STARFETCH_JOB_CAPABILITY_SECRET` is a base64url secret of at least 32 bytes.
+  It is required when `HOST` is not loopback; loopback development uses an
+  ephemeral per-process secret when omitted.
+
+The anonymous hosted policy is a fixed, tested product profile rather than a
+set of independently tunable environment variables. It caps MCP requests at 2
+MiB, TAP responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 100, redirects
+at 3, outbound requests at 4 concurrent operations, and tools at 60 seconds.
+Job waits default to 30 seconds, cap at 45 seconds, and poll between 1 and 10
+seconds. The process admits 100 MCP requests per minute globally; deployments
+that need per-client limits should enforce them at a trusted HTTPS ingress.
+
+The HTTP host accepts only credential-free HTTPS TAP targets whose complete
+DNS result is public, pins validated addresses for each request hop, keeps
+redirects same-origin, never automatically follows write redirects, and
+rejects remote-URI TAP uploads. These restrictions apply to the anonymous
+hosted app, not the local stdio MCP, CLI, or TypeScript API.
 
 To verify the protocol surface without opening the widget, start the app and
 run MCP Inspector's CLI in another shell:

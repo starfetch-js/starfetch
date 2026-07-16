@@ -30,7 +30,7 @@ import {
 } from "./schemas.js";
 import { runTool, success, targetDiagnostics } from "./results.js";
 import { createTapQueryData } from "./query-result.js";
-import type { StarfetchMcpServerOptions } from "./server.js";
+import type { StarfetchMcpRuntimeOptions } from "./server.js";
 import { createTapClient, createTapUploads } from "./tap-client.js";
 import {
   readOnlyLocalAnnotations,
@@ -41,7 +41,7 @@ const defaultTapQueryMaxrec = 100;
 
 export function registerStarfetchTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   registerPresetTools(server);
   registerRegistryTools(server, options);
@@ -72,7 +72,7 @@ function registerPresetTools(server: McpServer): void {
 
 function registerRegistryTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   server.registerTool(
     "starfetch_registry_search",
@@ -84,7 +84,7 @@ function registerRegistryTools(
       outputSchema: registrySearchOutputSchema,
       title: "Search TAP registry",
     },
-    async ({ query, maxrec, registryUrl }) =>
+    async ({ query, maxrec, registryUrl }, extra) =>
       runTool(async () => {
         const registryOptions: TapRegistryOptions = {};
 
@@ -102,9 +102,15 @@ function registerRegistryTools(
           searchOptions.query = query;
         }
 
-        if (maxrec !== undefined) {
-          searchOptions.maxrec = maxrec;
+        const prepared = options.policy.prepareRegistry({
+          fallbackMaxrec: defaultTapQueryMaxrec,
+          incomingSignal: extra.signal,
+          requestedMaxrec: maxrec,
+        });
+        if (prepared.maxrec !== undefined) {
+          searchOptions.maxrec = prepared.maxrec;
         }
+        searchOptions.signal = prepared.signal;
 
         const data =
           await registry(registryOptions).searchTapServices(searchOptions);
@@ -119,7 +125,7 @@ function registerRegistryTools(
 
 function registerMetadataTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   server.registerTool(
     "starfetch_tap_availability",
@@ -134,10 +140,12 @@ function registerMetadataTools(
       }),
       title: "Read TAP availability",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.availability();
+        const data = await client.availability({
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           target: targetDiagnostics(client.target),
@@ -158,10 +166,12 @@ function registerMetadataTools(
       }),
       title: "Read TAP capabilities",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.capabilities();
+        const data = await client.capabilities({
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           target: targetDiagnostics(client.target),
@@ -179,10 +189,12 @@ function registerMetadataTools(
       outputSchema: tablesOutputSchema,
       title: "List TAP tables",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.tables();
+        const data = await client.tables({
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           count: data.length,
@@ -201,10 +213,12 @@ function registerMetadataTools(
       outputSchema: columnsOutputSchema,
       title: "List TAP columns",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.columns(input.table);
+        const data = await client.columns(input.table, {
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           count: data.length,
@@ -217,7 +231,7 @@ function registerMetadataTools(
 
 function registerQueryTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   server.registerTool(
     "starfetch_tap_query",
@@ -229,16 +243,22 @@ function registerQueryTools(
       outputSchema: tapQueryOutputSchema,
       title: "Run bounded TAP query",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const startedAt = performance.now();
         const client = createTapClient(input, options);
         const format = input.format;
         const requestFormat = tapRequestFormatForOutput(format);
-        const maxrec = input.maxrec ?? defaultTapQueryMaxrec;
+        const prepared = options.policy.prepareQuery({
+          fallbackMaxrec: defaultTapQueryMaxrec,
+          incomingSignal: extra.signal,
+          requestedMaxrec: input.maxrec,
+          uploads: input.uploads,
+        });
+        const maxrec = prepared.maxrec;
         const result = await client.query(
           input.query,
-          createTapQueryOptions(input, requestFormat, maxrec),
+          createTapQueryOptions(input, requestFormat, maxrec, prepared.signal),
         );
         const data = await createTapQueryData(result, format);
 
@@ -274,8 +294,9 @@ function createTapQueryOptions(
   input: TapQueryInput,
   format: TapSyncFormat,
   maxrec: number,
+  signal: AbortSignal,
 ): QueryOptions {
-  const queryOptions: QueryOptions = { format, maxrec };
+  const queryOptions: QueryOptions = { format, maxrec, signal };
 
   if (input.runId !== undefined) {
     queryOptions.runId = input.runId;

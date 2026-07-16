@@ -129,6 +129,11 @@ describe("createStarfetchMcpServer", () => {
           sourceFormat: expect.any(Object),
         }),
       );
+      const localJobTools = tools.tools.filter((tool) =>
+        tool.name.startsWith("starfetch_tap_job_"),
+      );
+      expect(JSON.stringify(localJobTools)).not.toContain("jobCapability");
+      expect(JSON.stringify(localJobTools)).not.toContain('"confirm"');
     });
   });
 

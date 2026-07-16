@@ -3,6 +3,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 
 import { createMockTapAsyncFetch } from "../../core/test/mock-tap-async.js";
+import type { JobCapabilityOperation, StarfetchMcpPolicy } from "./policy.js";
 import {
   createStarfetchMcpServer,
   type StarfetchMcpServerOptions,
@@ -108,6 +109,72 @@ describe("Starfetch MCP TAP async job tools", () => {
 
     expect(mockFetch.requests[0]?.params.has("RESPONSEFORMAT")).toBe(false);
     expect(mockFetch.requests[0]?.params.get("MAXREC")).toBe("100");
+  });
+
+  it("issues and requires opaque job capabilities when hosted policy enables them", async () => {
+    const mockFetch = createMockTapAsyncFetch({ phase: "COMPLETED" });
+    const verified: string[] = [];
+    const policy = createHostedTestPolicy({
+      issue: () => "signed-job-capability",
+      verify: ({ capability, operation }) => {
+        if (capability !== "signed-job-capability") throw new Error("invalid");
+        verified.push(operation);
+      },
+    });
+
+    await withMcpClient({ fetch: mockFetch, policy }, async (client) => {
+      const submitted = await client.callTool({
+        arguments: {
+          query: "SELECT TOP 1 source_id FROM mock_source",
+          url: "https://example.test/tap",
+        },
+        name: "starfetch_tap_submit_job",
+      });
+      expect(submitted.structuredContent).toMatchObject({
+        data: { jobCapability: "signed-job-capability" },
+      });
+
+      const rejected = await client.callTool({
+        arguments: { jobIdOrUrl: "https://example.test/tap/async/job-123" },
+        name: "starfetch_tap_job_status",
+      });
+      expect(rejected.isError).toBe(true);
+      expect(firstTextContent(rejected)).toContain("CAPABILITY_INVALID");
+
+      const accepted = await client.callTool({
+        arguments: {
+          jobCapability: "signed-job-capability",
+          jobIdOrUrl: "https://example.test/tap/async/job-123",
+        },
+        name: "starfetch_tap_job_status",
+      });
+      expect(accepted.isError).toBeUndefined();
+    });
+
+    expect(verified).toEqual(["status"]);
+  });
+
+  it("uses capability authorization for hosted job deletion", async () => {
+    const mockFetch = createMockTapAsyncFetch({ phase: "COMPLETED" });
+    const policy = createHostedTestPolicy({
+      issue: () => "capability",
+      verify: () => undefined,
+    });
+
+    await withMcpClient({ fetch: mockFetch, policy }, async (client) => {
+      const accepted = await client.callTool({
+        arguments: {
+          jobCapability: "capability",
+          jobIdOrUrl: "https://example.test/tap/async/job-123",
+        },
+        name: "starfetch_tap_job_delete",
+      });
+      expect(accepted.isError).toBeUndefined();
+    });
+
+    expect(
+      mockFetch.requests.filter(({ method }) => method === "DELETE"),
+    ).toHaveLength(1);
   });
 
   it("reads TAP async job status from an absolute job URL", async () => {
@@ -443,4 +510,64 @@ function firstTextContent(result: unknown): string {
   }
 
   return first.text;
+}
+
+function createHostedTestPolicy(
+  jobCapabilities: Readonly<{
+    issue(input: {
+      jobUrl: string;
+      operations: readonly JobCapabilityOperation[];
+    }): string;
+    verify(input: {
+      capability: string | undefined;
+      jobUrl: string;
+      operation: JobCapabilityOperation;
+    }): void;
+  }>,
+): StarfetchMcpPolicy {
+  return {
+    authorizeJob(capability, jobUrl, operation) {
+      try {
+        jobCapabilities.verify({ capability, jobUrl, operation });
+      } catch {
+        throw new Error("CAPABILITY_INVALID");
+      }
+    },
+    issueJobCapability(jobUrl) {
+      return jobCapabilities.issue({
+        jobUrl,
+        operations: ["status", "wait", "fetch", "delete"],
+      });
+    },
+    jobAccess: "capability",
+    prepareQuery(input) {
+      return {
+        maxrec: input.requestedMaxrec ?? input.fallbackMaxrec,
+        signal: input.incomingSignal,
+      };
+    },
+    prepareRegistry(input) {
+      return {
+        ...(input.requestedMaxrec === undefined
+          ? {}
+          : { maxrec: input.requestedMaxrec }),
+        signal: input.incomingSignal,
+      };
+    },
+    prepareWait(input, fallbackTimeoutMs, incomingSignal) {
+      return {
+        ...(input.intervalMs === undefined
+          ? {}
+          : { intervalMs: input.intervalMs }),
+        ...(input.maxIntervalMs === undefined
+          ? {}
+          : { maxIntervalMs: input.maxIntervalMs }),
+        signal: incomingSignal,
+        timeoutMs: input.timeoutMs ?? fallbackTimeoutMs,
+      };
+    },
+    signal(incoming) {
+      return incoming;
+    },
+  };
 }

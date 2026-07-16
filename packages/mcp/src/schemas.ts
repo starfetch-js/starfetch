@@ -106,6 +106,13 @@ const tapJobTargetFields = {
   jobIdOrUrl: textSchema.describe("TAP async job id or absolute job URL."),
 };
 
+const hostedTapJobTargetFields = {
+  ...tapJobTargetFields,
+  jobCapability: optionalTextSchema.describe(
+    "Opaque capability returned by hosted Starfetch when this job was submitted.",
+  ),
+};
+
 export const tapJobSubmitInputSchema = z
   .object({
     ...targetFields,
@@ -155,7 +162,12 @@ export const tapJobInputSchema = z
   });
 export type TapJobInput = z.infer<typeof tapJobInputSchema>;
 
-export const tapJobWaitInputSchema = tapJobInputSchema.extend({
+export const hostedTapJobInputSchema = tapJobInputSchema.extend({
+  jobCapability: hostedTapJobTargetFields.jobCapability,
+});
+export type HostedTapJobInput = z.infer<typeof hostedTapJobInputSchema>;
+
+const tapJobWaitFields = {
   backoff: z.boolean().optional().describe("Increase the poll interval."),
   intervalMs: waitMsSchema
     .optional()
@@ -164,17 +176,28 @@ export const tapJobWaitInputSchema = tapJobInputSchema.extend({
     .optional()
     .describe("Maximum backoff interval in milliseconds."),
   timeoutMs: waitMsSchema.optional().describe("Wait timeout in milliseconds."),
-});
+};
+
+export const tapJobWaitInputSchema = tapJobInputSchema.extend(tapJobWaitFields);
 export type TapJobWaitInput = z.infer<typeof tapJobWaitInputSchema>;
 
-export const tapJobFetchInputSchema = tapJobInputSchema.extend({
+export const hostedTapJobWaitInputSchema =
+  hostedTapJobInputSchema.extend(tapJobWaitFields);
+
+const tapJobFetchFields = {
   format: z.enum(tapOutputFormats).describe("MCP result output format."),
   sourceFormat: z
     .enum(tapSyncFormats)
     .optional()
     .describe("Actual TAP result format for async job output."),
-});
+};
+
+export const tapJobFetchInputSchema =
+  tapJobInputSchema.extend(tapJobFetchFields);
 export type TapJobFetchInput = z.infer<typeof tapJobFetchInputSchema>;
+
+export const hostedTapJobFetchInputSchema =
+  hostedTapJobInputSchema.extend(tapJobFetchFields);
 
 function hasTapTarget(input: {
   service?: string | undefined;
@@ -282,6 +305,10 @@ export const tapQueryDiagnosticsSchema = targetDiagnosticsSchema.extend({
 export const tapJobDataSchema = z.object({
   id: z.string(),
   url: z.string(),
+});
+
+export const hostedTapJobSubmitDataSchema = tapJobDataSchema.extend({
+  jobCapability: z.string(),
 });
 
 export const tapJobStatusSchema = z.object({

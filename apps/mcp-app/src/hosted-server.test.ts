@@ -3,6 +3,8 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 
 import { createHostedStarfetchMcpServer } from "./hosted-server.js";
+import { createHostedStarfetchMcpPolicy } from "./hosted-policy.js";
+import { createJobCapabilityIssuer } from "./job-capability.js";
 import { createStarfetchTableView } from "./presentation.js";
 
 describe("hosted Starfetch MCP server", () => {
@@ -10,6 +12,13 @@ describe("hosted Starfetch MCP server", () => {
     const widgetHtml = "<!doctype html><title>Starfetch results</title>";
     const server = createHostedStarfetchMcpServer({
       loadWidgetHtml: async () => widgetHtml,
+      mcp: {
+        policy: createHostedStarfetchMcpPolicy({
+          jobCapabilities: createJobCapabilityIssuer({
+            secret: new Uint8Array(32).fill(4),
+          }),
+        }),
+      },
     });
     const client = new Client({
       name: "starfetch-widget-surface-test",
@@ -24,6 +33,16 @@ describe("hosted Starfetch MCP server", () => {
 
       const tools = await client.listTools();
       expect(tools.tools).toHaveLength(13);
+      const statusTool = tools.tools.find(
+        (tool) => tool.name === "starfetch_tap_job_status",
+      );
+      const deleteTool = tools.tools.find(
+        (tool) => tool.name === "starfetch_tap_job_delete",
+      );
+      expect(statusTool?.inputSchema).toHaveProperty(
+        "properties.jobCapability",
+      );
+      expect(deleteTool?.inputSchema).not.toHaveProperty("properties.confirm");
       expect(tools.tools).toContainEqual(
         expect.objectContaining({
           name: "starfetch_render_table",

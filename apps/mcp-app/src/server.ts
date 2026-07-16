@@ -1,6 +1,9 @@
+import { randomBytes } from "node:crypto";
+
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createStarfetchMcpServer } from "@starfetch-js/mcp";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 
@@ -11,6 +14,19 @@ import {
 } from "./exchange-lifecycle.js";
 import { closeHttpListener, listen, type HttpListener } from "./listener.js";
 import { createHostedStarfetchMcpServer } from "./hosted-server.js";
+import { createGuardedFetch } from "./guarded-fetch.js";
+import {
+  createHostedStarfetchMcpPolicy,
+  hostedPolicyLimits,
+} from "./hosted-policy.js";
+import {
+  createJobCapabilityIssuer,
+  decodeJobCapabilitySecret,
+} from "./job-capability.js";
+import {
+  createFixedWindowRateLimiter,
+  type HostedRateLimiter,
+} from "./rate-limiter.js";
 
 export type { Environment } from "./config.js";
 
@@ -37,8 +53,9 @@ type McpCleanupFailureLog = Readonly<{
 
 type ServerLog = HttpRequestLog | McpCleanupFailureLog;
 
-type ServerDependencies = Readonly<{
+export type ServerDependencies = Readonly<{
   createMcpServer?: () => OwnedMcpServer;
+  rateLimiter?: HostedRateLimiter;
   writeLog?: (event: ServerLog) => void;
 }>;
 
@@ -46,10 +63,35 @@ export async function startStarfetchMcpApp(
   environment: Environment = process.env,
   dependencies: ServerDependencies = {},
 ): Promise<RunningStarfetchMcpApp> {
-  const { allowedOrigins, host, port, shutdownGraceMs } =
-    loadHttpConfig(environment);
+  const config = loadHttpConfig(environment);
+  const { allowedOrigins, host, port, shutdownGraceMs } = config;
+  const guardedFetch = createGuardedFetch({
+    maxConcurrency: hostedPolicyLimits.maxOutboundConcurrency,
+    maxRedirects: hostedPolicyLimits.maxRedirects,
+    maxResponseBytes: hostedPolicyLimits.maxResponseBytes,
+    userAgent: "starfetch-hosted/0.0.0",
+  });
+  const capabilitySecret =
+    config.jobCapabilitySecret === undefined
+      ? resolveEphemeralSecret(host)
+      : decodeJobCapabilitySecret(config.jobCapabilitySecret);
+  const capabilityIssuer = createJobCapabilityIssuer({
+    secret: capabilitySecret,
+  });
+  const policy = createHostedStarfetchMcpPolicy({
+    jobCapabilities: capabilityIssuer,
+  });
+  const rateLimiter =
+    dependencies.rateLimiter ??
+    createFixedWindowRateLimiter({
+      limit: hostedPolicyLimits.ratePerMinute,
+    });
   const createMcpServer =
-    dependencies.createMcpServer ?? createHostedStarfetchMcpServer;
+    dependencies.createMcpServer ??
+    (() =>
+      createHostedStarfetchMcpServer({
+        mcp: { fetch: guardedFetch, policy },
+      }));
   const writeLog = dependencies.writeLog ?? writeJsonLog;
   const exchanges = createExchangeRegistry((requestId) =>
     writeLog({ event: "mcp_cleanup_failed", requestId }),
@@ -113,7 +155,25 @@ export async function startStarfetchMcpApp(
       origin: (origin) => (allowedOrigins.has(origin) ? origin : undefined),
     }),
   );
-
+  app.use("/mcp", async (context, next) => {
+    const result = rateLimiter.consume();
+    if (!result.allowed) {
+      context.header(
+        "Retry-After",
+        String(Math.ceil(result.retryAfterMs / 1000)),
+      );
+      return context.json({ error: "Rate limit exceeded" }, 429);
+    }
+    await next();
+  });
+  app.use(
+    "/mcp",
+    bodyLimit({
+      maxSize: hostedPolicyLimits.maxRequestBytes,
+      onError: (context) =>
+        context.json({ error: "Request body too large" }, 413),
+    }),
+  );
   app.get("/healthz", (context) => context.json({ status: "ok" }));
 
   app.all("/mcp", async (context) => {
@@ -159,16 +219,26 @@ export async function startStarfetchMcpApp(
     throw new Error("Expected the MCP HTTP listener to use a TCP address.");
   }
 
+  const origin = new URL(`http://${formatHostname(host)}:${address.port}`);
   let closePromise: Promise<void> | undefined;
 
   return {
-    origin: new URL(`http://${formatHostname(host)}:${address.port}`),
+    origin,
     close() {
       accepting = false;
       closePromise ??= closeApp(listener, exchanges, shutdownGraceMs);
       return closePromise;
     },
   };
+}
+
+function resolveEphemeralSecret(host: string): Uint8Array {
+  if (!isLoopbackHost(host)) {
+    throw new Error(
+      "STARFETCH_JOB_CAPABILITY_SECRET is required for non-loopback hosting.",
+    );
+  }
+  return randomBytes(32);
 }
 
 function isLoopbackHost(host: string): boolean {

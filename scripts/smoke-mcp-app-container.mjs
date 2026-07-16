@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
 const image =
   process.env.STARFETCH_CONTAINER_IMAGE ?? "starfetch-mcp-app:smoke";
 const container = `starfetch-mcp-app-smoke-${process.pid}`;
+const capabilitySecret = Buffer.alloc(32, 1).toString("base64url");
 
 try {
   await run("docker", [
@@ -22,6 +24,8 @@ try {
     "--detach",
     "--name",
     container,
+    "--env",
+    `STARFETCH_JOB_CAPABILITY_SECRET=${capabilitySecret}`,
     "--publish",
     "127.0.0.1::8080",
     image,
