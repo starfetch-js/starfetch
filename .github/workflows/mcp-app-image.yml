@@ -5,18 +5,6 @@ on:
     branches:
       - main
       - project/starfetch-mcp-app
-    paths:
-      - .dockerignore
-      - .github/workflows/mcp-app-image.yml
-      - apps/mcp-app/**
-      - packages/core/**
-      - packages/mcp/**
-      - packages/skill/**
-      - lerna.json
-      - package-lock.json
-      - package.json
-      - tsconfig.base.json
-      - tsdown.config.ts
   workflow_dispatch:
 
 permissions:
@@ -56,7 +44,9 @@ jobs:
           push: true
           provenance: false
           sbom: true
-          tags: ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ github.ref == 'refs/heads/project/starfetch-mcp-app' && format('{0}:staging-candidate', env.IMAGE_NAME) || '' }}
           cache-from: type=gha,scope=starfetch-mcp-app
           cache-to: type=gha,mode=max,scope=starfetch-mcp-app
           labels: |
