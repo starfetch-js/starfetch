@@ -5,6 +5,18 @@ on:
     branches:
       - main
       - project/starfetch-mcp-app
+    paths:
+      - .dockerignore
+      - .github/workflows/mcp-app-image.yml
+      - apps/mcp-app/**
+      - packages/core/**
+      - packages/mcp/**
+      - packages/skill/**
+      - lerna.json
+      - package-lock.json
+      - package.json
+      - tsconfig.base.json
+      - tsdown.config.ts
   workflow_dispatch:
 
 permissions:
