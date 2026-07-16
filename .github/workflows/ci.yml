@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Quality checks · Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
