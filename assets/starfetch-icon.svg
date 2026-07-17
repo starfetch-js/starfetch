@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  role="img"
+  aria-label="Starfetch icon">
+
+<defs>
+  <linearGradient id="starGradient" x1="16%" y1="8%" x2="76%" y2="94%">
+    <stop offset="0%" stop-color="#18B9F6"/>
+    <stop offset="38%" stop-color="#346AF4"/>
+    <stop offset="70%" stop-color="#7651F2"/>
+    <stop offset="100%" stop-color="#D33BEA"/>
+  </linearGradient>
+
+  <linearGradient id="sparkGradient" x1="12%" y1="8%" x2="80%" y2="92%">
+    <stop offset="0%" stop-color="#1CB8F6"/>
+    <stop offset="52%" stop-color="#5366F4"/>
+    <stop offset="100%" stop-color="#D13DEB"/>
+  </linearGradient>
+
+  <clipPath id="mainStarClip">
+    <path d="
+M256 26
+C248 137 350 248 486 256
+C350 264 264 350 256 486
+C248 350 137 264 26 256
+C137 248 248 137 256 26
+Z
+M256 188
+C268 222 290 244 324 256
+C290 268 268 290 256 324
+C244 290 222 268 188 256
+C222 244 244 222 256 188
+Z
+" fill-rule="evenodd"/>
+  </clipPath>
+
+  <g id="starfetchSymbol">
+    <path d="
+M256 26
+C248 137 350 248 486 256
+C350 264 264 350 256 486
+C248 350 137 264 26 256
+C137 248 248 137 256 26
+Z
+M256 188
+C268 222 290 244 324 256
+C290 268 268 290 256 324
+C244 290 222 268 188 256
+C222 244 244 222 256 188
+Z
+" fill="url(#starGradient)" fill-rule="evenodd"/>
+
+    <g clip-path="url(#mainStarClip)" opacity="0.22">
+      <path d="M256 26 L486 256 L256 188 Z" fill="#6FE0FF"/>
+      <path d="M486 256 L256 486 L324 256 Z" fill="#3E8EFF"/>
+      <path d="M256 486 L26 256 L256 324 Z" fill="#C442EE"/>
+      <path d="M26 256 L256 26 L188 256 Z" fill="#4A5CF3"/>
+    </g>
+
+    <g transform="translate(397 132)">
+      <path d="
+M0 -44
+C-2 -17 -17 -2 -44 0
+C-17 2 -2 17 0 44
+C2 17 17 2 44 0
+C17 -2 2 -17 0 -44
+Z
+" fill="url(#sparkGradient)"/>
+    </g>
+
+    <circle cx="348" cy="91" r="7" fill="#3198F4"/>
+    <circle cx="352" cy="181" r="8" fill="#9C45EE"/>
+    <circle cx="438" cy="194" r="7" fill="#348CF4"/>
+  </g>
+</defs>
+
+<use href="#starfetchSymbol"/>
+</svg>

@@ -1,7 +1,11 @@
 # Starfetch
 
 <p align="center">
-  <img src="assets/logo.svg" width="96" alt="Starfetch logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/starfetch-logo-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/starfetch-logo-light.svg" />
+    <img src="assets/starfetch-logo-light.svg" width="420" alt="Starfetch" />
+  </picture>
 </p>
 
 <p align="center">
