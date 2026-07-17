@@ -77,12 +77,19 @@ agent workflow is convenient without becoming a scientific black box.
 
 ## Connect an agent
 
+Starfetch can run locally from npm or through a remote MCP endpoint. The local
+npm server is the stable default and runs on your computer. The remote service
+runs Starfetch online so compatible clients can connect without launching a
+local package; it also provides the interactive table widget.
+
+### Local npm server
+
 Register Starfetch with the agent client that will launch it. Running the MCP
 package by itself only starts a stdio server; it does not connect that server to
 an agent. Starfetch is also discoverable through the
 [official MCP Registry](https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch).
 
-### Codex
+#### Codex
 
 Register Starfetch for the Codex CLI, IDE extension, and ChatGPT desktop app:
 
@@ -94,7 +101,7 @@ codex mcp list
 These Codex surfaces share MCP configuration. See the
 [official Codex MCP documentation](https://developers.openai.com/codex/mcp).
 
-### Claude Code
+#### Claude Code
 
 Register Starfetch in user scope:
 
@@ -106,7 +113,7 @@ claude mcp get starfetch
 See the
 [official Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp).
 
-### Cursor
+#### Cursor
 
 Add this server entry to `~/.cursor/mcp.json` for global use or
 `.cursor/mcp.json` for one project:
@@ -136,6 +143,43 @@ args: -y @starfetch-js/mcp
 Restart or reload the client after registration, then ask a normal astronomy
 question. You should not need to write ADQL or name Starfetch tools in the
 prompt. Starfetch requires Node.js 22 or newer.
+
+### Remote MCP (staging preview)
+
+A remote MCP service runs on the internet and accepts MCP connections over
+HTTPS. No Starfetch package has to be installed or launched on the user's
+computer. The remote service is intended for compatible AI clients and
+interfaces that want the Starfetch tools or table widget without managing the
+npm package locally.
+
+For testing this pull request, use the temporary staging endpoint:
+
+```text
+https://starfetch-mcp-app-staging-wumkqeiqaa-ew.a.run.app/mcp
+```
+
+The staging endpoint is public, unauthenticated, and may be reset, replaced, or
+unavailable. Use only non-sensitive public-catalog queries and uploads. Do not
+send credentials, private archive URLs, personal data, or confidential data.
+
+- **ChatGPT:** follow OpenAI's
+  [developer-mode instructions](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt-beta),
+  create a custom app with the endpoint above, and select no authentication.
+- **Claude:** in **Settings > Connectors**, add a custom connector with the
+  endpoint above. See Anthropic's
+  [remote MCP instructions](https://support.anthropic.com/en/articles/11175166-about-custom-integrations-using-remote-mcp).
+- **Other clients:** configure the endpoint as an unauthenticated Streamable
+  HTTP MCP server using that client's documentation.
+
+Client support varies. Starfetch does not guarantee availability in any
+client's public directory, and the table widget appears only in clients that
+support MCP Apps UI resources.
+
+See the remote service's [overview](apps/mcp-app/README.md),
+[privacy notice](apps/mcp-app/PRIVACY.md),
+[support](apps/mcp-app/SUPPORT.md), and
+[terms of use](apps/mcp-app/TERMS.md). Published client integrations will be
+linked here only after they are available.
 
 ## What the agent does
 
@@ -178,12 +222,12 @@ exact submitted ADQL and effective row limit for reproduction and review.
 Synchronous queries and async submissions send TAP `MAXREC=100` when `maxrec`
 is omitted.
 
-The hosted HTTP app returns an opaque `jobCapability` with each async
-submission. Supply that value unchanged to every hosted status, wait, fetch,
+The remote HTTP service returns an opaque `jobCapability` with each async
+submission. Supply that value unchanged to every remote status, wait, fetch,
 or delete call. The capability remains usable while the remote job exists and
-the hosted secret is unchanged. Hosted deletion is marked destructive so MCP
-clients can obtain user approval. The stdio MCP server and CLI keep their
-existing job-reference behavior and do not advertise hosted-only fields.
+the service signing secret is unchanged. Remote deletion is marked destructive
+so MCP clients can obtain user approval. The stdio MCP server and CLI keep
+their existing job-reference behavior and do not advertise remote-only fields.
 
 ## Why Starfetch?
 
@@ -442,7 +486,7 @@ npm run dev:http
 
 It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
 `http://127.0.0.1:3000/health`. Each MCP request gets a fresh stateless
-`@starfetch-js/mcp` server. The hosted surface keeps the 12 canonical
+`@starfetch-js/mcp` server. The HTTP surface keeps the 12 canonical
 Starfetch tools unchanged and adds `starfetch_render_table`, which presents an
 existing bounded `StarfetchTableViewV1` through the immutable
 `ui://starfetch/table/v1` MCP Apps resource. The renderer never submits TAP
@@ -459,7 +503,7 @@ environment-only:
   It is required when `HOST` is not loopback; loopback development uses an
   ephemeral per-process secret when omitted.
 
-The anonymous hosted policy is a fixed, tested product profile rather than a
+The anonymous HTTP policy is a fixed, tested product profile rather than a
 set of independently tunable environment variables. It caps MCP requests at 2
 MiB, TAP responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 100, redirects
 at 3, outbound requests at 4 concurrent operations, and tools at 60 seconds.
@@ -470,8 +514,8 @@ that need per-client limits should enforce them at a trusted HTTPS ingress.
 The HTTP host accepts only credential-free HTTPS TAP targets whose complete
 DNS result is public, pins validated addresses for each request hop, keeps
 redirects same-origin, never automatically follows write redirects, and
-rejects remote-URI TAP uploads. These restrictions apply to the anonymous
-hosted app, not the local stdio MCP, CLI, or TypeScript API.
+rejects remote-URI TAP uploads. These restrictions apply to the anonymous HTTP
+app, not the local stdio MCP, CLI, or TypeScript API.
 
 To verify the protocol surface without opening the widget, start the app and
 run MCP Inspector's CLI in another shell:
@@ -524,7 +568,7 @@ To render the widget in MCP Inspector's Apps tab:
    }
    ```
 
-The Apps tab requires the hosted Streamable HTTP endpoint; the canonical stdio
+The Apps tab requires the Streamable HTTP endpoint; the canonical stdio
 server exposes the core Starfetch tools without UI resources. Inspector's
 **Via Proxy** mode works with the default origin policy. To use **Direct** mode,
 allow Inspector's browser origins explicitly when starting the app:
