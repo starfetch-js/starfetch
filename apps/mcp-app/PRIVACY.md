@@ -18,6 +18,20 @@ The service runs on Google Cloud Run in Belgium. Google Cloud automatically
 records limited HTTP request metadata. The selected public astronomy service
 also receives the information needed to perform each requested operation.
 
+## MCP client or host
+
+The MCP client or host selected by the user sends tool inputs to Starfetch and
+receives tool results and any table-widget content. That client may retain
+requests and results with the user's conversation or account under its own
+privacy and retention policies. Starfetch does not control the client's data
+handling.
+
+The connection to Starfetch can originate from the client provider's
+infrastructure rather than directly from the user's device. The client IP
+address and user agent in Cloud Run request metadata can therefore describe the
+connecting provider or network, not necessarily the individual user or device.
+Review the chosen client's policies before connecting it to Starfetch.
+
 ## Information processed by Starfetch
 
 An MCP request can contain a selected TAP service, metadata request, ADQL
@@ -89,6 +103,7 @@ copy displayed data.
 ## User choices
 
 - Do not submit credentials, private archive URLs, or sensitive personal data.
+- Review the selected MCP client's privacy and retention policies.
 - Choose only public TAP services whose policies are acceptable for the task.
 - Delete remote asynchronous jobs when they are no longer needed.
 - Use a locally launched Starfetch MCP server instead of the remote service
@@ -96,8 +111,9 @@ copy displayed data.
 
 Because Starfetch has no remote-service user account or application data store,
 it does not operate an account-data deletion-request workflow. Questions about
-this notice may be raised through [support](SUPPORT.md) without including
-sensitive information. Report security issues privately as described there.
+this notice or the remote service's handling of personal data may be sent to
+[ma1kov14h@gmail.com](mailto:ma1kov14h@gmail.com). Report security issues
+privately through the separate route described in [support](SUPPORT.md).
 
 ## Changes
 

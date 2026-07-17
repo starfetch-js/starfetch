@@ -88,5 +88,5 @@ the public remote-service pages.
 
 ## Support
 
-See [support](SUPPORT.md) for public support and private security reporting
-routes.
+See [support](SUPPORT.md) for public support, private privacy inquiries, and
+private security reporting routes.

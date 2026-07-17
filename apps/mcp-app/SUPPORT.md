@@ -16,6 +16,14 @@ service, expected behavior, and the non-sensitive error message. Do not paste
 credentials, private URLs, signed job capabilities, sensitive uploads, or
 personal data into a public issue.
 
+## Privacy inquiries
+
+Questions about the remote service's privacy notice or handling of personal
+data may be sent privately to
+[ma1kov14h@gmail.com](mailto:ma1kov14h@gmail.com). Do not include credentials,
+private URLs, signed job capabilities, or sensitive astronomy data unless they
+are necessary to investigate the question.
+
 ## Security reports
 
 Do not disclose a vulnerability in a public issue. Use

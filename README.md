@@ -77,10 +77,8 @@ agent workflow is convenient without becoming a scientific black box.
 
 ## Connect an agent
 
-Starfetch can run locally from npm or through a remote MCP endpoint. The local
-npm server is the stable default and runs on your computer. The remote service
-runs Starfetch online so compatible clients can connect without launching a
-local package; it also provides the interactive table widget.
+The local npm server is Starfetch's stable public connection path. It runs on
+your computer and can be registered with any compatible MCP client.
 
 ### Local npm server
 
@@ -144,42 +142,20 @@ Restart or reload the client after registration, then ask a normal astronomy
 question. You should not need to write ADQL or name Starfetch tools in the
 prompt. Starfetch requires Node.js 22 or newer.
 
-### Remote MCP (staging preview)
+### Remote MCP
 
 A remote MCP service runs on the internet and accepts MCP connections over
 HTTPS. No Starfetch package has to be installed or launched on the user's
-computer. The remote service is intended for compatible AI clients and
-interfaces that want the Starfetch tools or table widget without managing the
-npm package locally.
-
-For testing this pull request, use the temporary staging endpoint:
-
-```text
-https://starfetch-mcp-app-staging-wumkqeiqaa-ew.a.run.app/mcp
-```
-
-The staging endpoint is public, unauthenticated, and may be reset, replaced, or
-unavailable. Use only non-sensitive public-catalog queries and uploads. Do not
-send credentials, private archive URLs, personal data, or confidential data.
-
-- **ChatGPT:** follow OpenAI's
-  [developer-mode instructions](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt-beta),
-  create a custom app with the endpoint above, and select no authentication.
-- **Claude:** in **Settings > Connectors**, add a custom connector with the
-  endpoint above. See Anthropic's
-  [remote MCP instructions](https://support.anthropic.com/en/articles/11175166-about-custom-integrations-using-remote-mcp).
-- **Other clients:** configure the endpoint as an unauthenticated Streamable
-  HTTP MCP server using that client's documentation.
-
-Client support varies. Starfetch does not guarantee availability in any
-client's public directory, and the table widget appears only in clients that
-support MCP Apps UI resources.
+computer. Starfetch is preparing this access mode for compatible clients and
+interfaces that need its tools or table widget without managing npm locally.
+A stable public endpoint is not available yet. Production connection and
+client-compatibility instructions will be added here after that endpoint is
+ready.
 
 See the remote service's [overview](apps/mcp-app/README.md),
 [privacy notice](apps/mcp-app/PRIVACY.md),
 [support](apps/mcp-app/SUPPORT.md), and
-[terms of use](apps/mcp-app/TERMS.md). Published client integrations will be
-linked here only after they are available.
+[terms of use](apps/mcp-app/TERMS.md).
 
 ## What the agent does
 
