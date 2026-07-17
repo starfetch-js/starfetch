@@ -571,10 +571,7 @@ For a temporary remote URL, the development machine can run:
 cloudflared tunnel --url http://127.0.0.1:3000 --http-host-header 127.0.0.1:3000
 ```
 
-The HTTP app has no authentication or rate limiting. A quick tunnel is public
-and temporary: use only non-sensitive test traffic and stop it immediately
-after testing. This development app is not production deployment
-infrastructure.
+The HTTP app has no authentication. It applies a coarse, per-process fixed window limit of 100 MCP requests per minute, not per-client abuse protection. A quick tunnel is public and temporary: use only non-sensitive test traffic and stop it immediately after testing. This development app is not production deployment infrastructure.
 
 The workspace requires Node.js `>=22.13.0`. Run:
 
