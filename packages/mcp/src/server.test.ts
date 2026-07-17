@@ -77,6 +77,12 @@ describe("createStarfetchMcpServer", () => {
           readOnlyHint: true,
         }),
       );
+      expect(toolByName(tools, "starfetch_tap_query").annotations).toEqual({
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+        readOnlyHint: false,
+      });
       expect(inputProperties(tools, "starfetch_tap_availability")).toEqual(
         expect.objectContaining({
           service: expect.any(Object),

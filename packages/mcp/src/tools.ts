@@ -236,7 +236,12 @@ function registerQueryTools(
   server.registerTool(
     "starfetch_tap_query",
     {
-      annotations: readOnlyNetworkAnnotations,
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+        readOnlyHint: false,
+      },
       description:
         "Run a small bounded synchronous TAP ADQL query after inspecting the exact table and columns. Use TOP in ADQL and/or maxrec, and treat tool errors as failures rather than empty scientific results.",
       inputSchema: tapQueryInputSchema,

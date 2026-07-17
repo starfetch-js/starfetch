@@ -46,6 +46,7 @@ export function createHostedStarfetchMcpServer(
       inputSchema: starfetchTableViewV1Schema,
       outputSchema: starfetchTableViewV1Schema,
       annotations: {
+        destructiveHint: false,
         idempotentHint: true,
         openWorldHint: false,
         readOnlyHint: true,

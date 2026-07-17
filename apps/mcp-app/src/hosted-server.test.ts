@@ -7,6 +7,87 @@ import { createHostedStarfetchMcpPolicy } from "./hosted-policy.js";
 import { createJobCapabilityIssuer } from "./job-capability.js";
 import { createStarfetchTableView } from "./presentation.js";
 
+const expectedHostedToolAnnotations = {
+  starfetch_list_presets: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+    readOnlyHint: true,
+  },
+  starfetch_registry_search: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_render_table: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+    readOnlyHint: true,
+  },
+  starfetch_tap_availability: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_tap_capabilities: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_tap_columns: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_tap_job_delete: {
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  starfetch_tap_job_fetch: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_tap_job_status: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_tap_job_wait: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  starfetch_tap_query: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  starfetch_tap_submit_job: {
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  starfetch_tap_tables: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+} as const;
+
 describe("hosted Starfetch MCP server", () => {
   it("adds the portable table renderer and immutable widget resource", async () => {
     const widgetHtml = "<!doctype html><title>Starfetch results</title>";
@@ -33,6 +114,11 @@ describe("hosted Starfetch MCP server", () => {
 
       const tools = await client.listTools();
       expect(tools.tools).toHaveLength(13);
+      expect(
+        Object.fromEntries(
+          tools.tools.map((tool) => [tool.name, tool.annotations]),
+        ),
+      ).toEqual(expectedHostedToolAnnotations);
       const statusTool = tools.tools.find(
         (tool) => tool.name === "starfetch_tap_job_status",
       );
