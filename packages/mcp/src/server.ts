@@ -30,6 +30,13 @@ export function createStarfetchMcpServer(
 ): McpServer {
   const server = new McpServer(
     {
+      icons: [
+        {
+          mimeType: "image/png",
+          sizes: ["512x512"],
+          src: "https://raw.githubusercontent.com/starfetch-js/starfetch/main/assets/starfetch-icon-512.png",
+        },
+      ],
       name: mcpServerName,
       title: "Starfetch",
       version: mcpServerVersion,
