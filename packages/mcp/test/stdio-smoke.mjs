@@ -25,6 +25,13 @@ const transport = new StdioClientTransport({
 try {
   await client.connect(transport);
   assert.deepEqual(client.getServerVersion(), {
+    icons: [
+      {
+        mimeType: "image/png",
+        sizes: ["512x512"],
+        src: "https://raw.githubusercontent.com/starfetch-js/starfetch/main/assets/starfetch-icon-512.png",
+      },
+    ],
     name: "starfetch",
     title: "Starfetch",
     version: packageVersion,
