@@ -146,11 +146,16 @@ prompt. Starfetch requires Node.js 22 or newer.
 
 A remote MCP service runs on the internet and accepts MCP connections over
 HTTPS. No Starfetch package has to be installed or launched on the user's
-computer. Starfetch is preparing this access mode for compatible clients and
-interfaces that need its tools or table widget without managing npm locally.
-A stable public endpoint is not available yet. Production connection and
-client-compatibility instructions will be added here after that endpoint is
-ready.
+computer. Compatible clients can connect to the production endpoint:
+
+```text
+https://starfetch-mcp-app-production-wumkqeiqaa-ew.a.run.app/mcp
+```
+
+The remote service is public, unauthenticated, bounded, and best effort. Do
+not send credentials, private archive URLs, sensitive personal data, or
+unbounded workloads. The local npm server remains the default when you want
+local control or when a client does not support remote Streamable HTTP MCP.
 
 See the remote service's [overview](apps/mcp-app/README.md),
 [privacy notice](apps/mcp-app/PRIVACY.md),
