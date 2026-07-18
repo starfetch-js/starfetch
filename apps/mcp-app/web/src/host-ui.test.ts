@@ -95,6 +95,93 @@ describe("StarfetchHostSession", () => {
     });
     expect(writeClipboard).not.toHaveBeenCalled();
   });
+
+  it("falls back to the ChatGPT file flow when standard download is unavailable", async () => {
+    const saveFileFallback = vi.fn().mockResolvedValue(true);
+    const session = new StarfetchHostSession(
+      createBridge({
+        context: { displayMode: "inline" },
+        requestDisplayMode: vi.fn(),
+      }),
+      vi.fn(),
+      saveFileFallback,
+    );
+
+    await expect(
+      session.saveFile("starfetch-results.csv", "text/csv", "id\n42"),
+    ).resolves.toBe(true);
+    expect(saveFileFallback).toHaveBeenCalledWith(
+      "starfetch-results.csv",
+      "text/csv",
+      "id\n42",
+    );
+  });
+
+  it("replaces model context with text rows when modalities are unspecified", async () => {
+    const updateModelContext = vi.fn().mockResolvedValue({});
+    const session = new StarfetchHostSession(
+      createBridge({
+        capabilities: { updateModelContext: {} },
+        context: { displayMode: "inline" },
+        requestDisplayMode: vi.fn(),
+        updateModelContext,
+      }),
+      vi.fn(),
+    );
+
+    await expect(
+      session.analyzeRows("Gaia results", 2, 4, "selection", [
+        { source_id: "42" },
+      ]),
+    ).resolves.toBe(true);
+    await expect(
+      session.analyzeRows("Gaia results", 3, 4, "page", [{ source_id: "84" }]),
+    ).resolves.toBe(true);
+    expect(updateModelContext).toHaveBeenCalledTimes(2);
+    expect(updateModelContext).toHaveBeenNthCalledWith(1, {
+      content: [
+        expect.objectContaining({
+          text: expect.stringContaining('"source_id": "42"'),
+        }),
+      ],
+    });
+    expect(updateModelContext).toHaveBeenNthCalledWith(2, {
+      content: [
+        expect.objectContaining({
+          text: expect.stringContaining('"source_id": "84"'),
+        }),
+      ],
+    });
+  });
+
+  it("uses structured rows when the host advertises structured context", async () => {
+    const updateModelContext = vi.fn().mockResolvedValue({});
+    const session = new StarfetchHostSession(
+      createBridge({
+        capabilities: { updateModelContext: { structuredContent: {} } },
+        context: { displayMode: "inline" },
+        requestDisplayMode: vi.fn(),
+        updateModelContext,
+      }),
+      vi.fn(),
+    );
+
+    await expect(
+      session.analyzeRows("Gaia results", 2, 4, "selection", [
+        { source_id: "42" },
+      ]),
+    ).resolves.toBe(true);
+    expect(updateModelContext).toHaveBeenCalledWith({
+      structuredContent: {
+        page: 2,
+        pageCount: 4,
+        rowCount: 1,
+        rows: [{ source_id: "42" }],
+        scope: "selection",
+        title: "Gaia results",
+      },
+    });
+  });
 });
 
 function createBridge({
@@ -103,6 +190,7 @@ function createBridge({
   context,
   downloadFile = vi.fn(),
   requestDisplayMode,
+  updateModelContext = vi.fn(),
 }: {
   capabilities?: StarfetchHostCapabilities;
   captureHostContextListener?: (listener: HostContextListener) => void;
@@ -111,6 +199,7 @@ function createBridge({
   requestDisplayMode: (
     mode: StarfetchDisplayMode,
   ) => Promise<StarfetchDisplayMode>;
+  updateModelContext?: StarfetchHostBridge["updateModelContext"];
 }): StarfetchHostBridge {
   return {
     addHostContextListener: (listener) =>
@@ -120,5 +209,6 @@ function createBridge({
     getHostContext: () => context,
     removeHostContextListener: vi.fn(),
     requestDisplayMode,
+    updateModelContext,
   };
 }

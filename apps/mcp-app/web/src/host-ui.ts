@@ -18,12 +18,18 @@ export type StarfetchHostBridge = Readonly<{
   getHostContext(): StarfetchHostContext | undefined;
   removeHostContextListener(listener: HostContextListener): void;
   requestDisplayMode(mode: StarfetchDisplayMode): Promise<StarfetchDisplayMode>;
+  updateModelContext(
+    params: Parameters<App["updateModelContext"]>[0],
+  ): ReturnType<App["updateModelContext"]>;
 }>;
 
 export type StarfetchHostSnapshot = Readonly<{
+  canAnalyze: boolean;
   canExpand: boolean;
   mode: StarfetchDisplayMode;
 }>;
+
+export type AnalysisScope = "page" | "selection";
 
 export class StarfetchHostSession {
   readonly #bridge: StarfetchHostBridge;
@@ -31,6 +37,11 @@ export class StarfetchHostSession {
   readonly #listeners = new Set<() => void>();
   #snapshot: StarfetchHostSnapshot;
   readonly #writeClipboard: (value: string) => Promise<void>;
+  readonly #saveFileFallback: (
+    filename: string,
+    mimeType: string,
+    text: string,
+  ) => Promise<boolean>;
   readonly #updateContext = (context: StarfetchHostContext) => {
     this.#context = { ...this.#context, ...context };
     this.#publish();
@@ -39,11 +50,20 @@ export class StarfetchHostSession {
   constructor(
     bridge: StarfetchHostBridge,
     writeClipboard: (value: string) => Promise<void>,
+    saveFileFallback: (
+      filename: string,
+      mimeType: string,
+      text: string,
+    ) => Promise<boolean> = async () => false,
   ) {
     this.#bridge = bridge;
     this.#writeClipboard = writeClipboard;
+    this.#saveFileFallback = saveFileFallback;
     this.#context = bridge.getHostContext() ?? {};
-    this.#snapshot = createSnapshot(this.#context);
+    this.#snapshot = createSnapshot(
+      this.#context,
+      bridge.getHostCapabilities(),
+    );
     bridge.addHostContextListener(this.#updateContext);
   }
 
@@ -88,7 +108,7 @@ export class StarfetchHostSession {
     text: string,
   ): Promise<boolean> {
     if (this.#bridge.getHostCapabilities()?.downloadFile === undefined) {
-      return false;
+      return this.#saveFileFallback(filename, mimeType, text);
     }
 
     try {
@@ -110,17 +130,97 @@ export class StarfetchHostSession {
     }
   }
 
+  async analyzeRows(
+    title: string,
+    page: number,
+    pageCount: number,
+    scope: AnalysisScope,
+    rows: ReadonlyArray<Record<string, unknown>>,
+  ): Promise<boolean> {
+    const modalities = this.#bridge.getHostCapabilities()?.updateModelContext;
+    const supportsText =
+      modalities !== undefined &&
+      (modalities.text !== undefined || Object.keys(modalities).length === 0);
+    const supportsStructured = modalities?.structuredContent !== undefined;
+    if (
+      modalities === undefined ||
+      (!supportsText && !supportsStructured) ||
+      rows.length === 0 ||
+      rows.length > 100
+    ) {
+      return false;
+    }
+
+    try {
+      const snapshot = {
+        page,
+        pageCount,
+        rowCount: rows.length,
+        rows,
+        scope,
+        title,
+      };
+      const subject =
+        scope === "selection"
+          ? `${rows.length} selected rows from`
+          : "the visible rows on";
+      const rowMeaning =
+        scope === "selection"
+          ? "the user's current selection"
+          : "the current page";
+      const description = `The user chose to analyze ${subject} page ${page} of ${pageCount} in ${title}. Treat these rows as ${rowMeaning}, not the complete query result.`;
+      await this.#bridge.updateModelContext({
+        ...(!supportsText
+          ? {}
+          : {
+              content: [
+                {
+                  type: "text" as const,
+                  text: !supportsStructured
+                    ? `${description}\n\nStarfetch table snapshot:\n${JSON.stringify(snapshot, null, 2)}`
+                    : description,
+                },
+              ],
+            }),
+        ...(!supportsStructured ? {} : { structuredContent: snapshot }),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   #publish(): void {
-    this.#snapshot = createSnapshot(this.#context);
+    this.#snapshot = createSnapshot(
+      this.#context,
+      this.#bridge.getHostCapabilities(),
+    );
     for (const listener of this.#listeners) {
       listener();
     }
   }
 }
 
-function createSnapshot(context: StarfetchHostContext): StarfetchHostSnapshot {
+function createSnapshot(
+  context: StarfetchHostContext,
+  capabilities?: StarfetchHostCapabilities,
+): StarfetchHostSnapshot {
   return {
-    canExpand: context.availableDisplayModes?.includes("fullscreen") ?? false,
+    canAnalyze: supportsTableContext(capabilities?.updateModelContext),
+    canExpand:
+      context.platform !== "mobile" &&
+      (context.availableDisplayModes?.includes("fullscreen") ?? false),
     mode: context.displayMode ?? "inline",
   };
+}
+
+function supportsTableContext(
+  modalities: StarfetchHostCapabilities["updateModelContext"],
+): boolean {
+  return (
+    modalities !== undefined &&
+    (Object.keys(modalities).length === 0 ||
+      modalities.text !== undefined ||
+      modalities.structuredContent !== undefined)
+  );
 }

@@ -130,7 +130,7 @@ describe("Starfetch MCP HTTP app", () => {
       const result = await client.callTool({
         arguments: {
           format: "json",
-          maxrec: 101,
+          maxrec: 10_001,
           query: "SELECT TOP 1 source_id FROM source",
           url: "https://example.test/tap",
         },

@@ -9,7 +9,7 @@ import { z } from "zod/v4";
 const textSchema = z.string().trim().min(1);
 const optionalTextSchema = textSchema.optional();
 
-const targetFields = {
+export const tapTargetInputShape = {
   service: optionalTextSchema.describe(
     "Known Starfetch TAP service preset selected for this workflow; use this or url.",
   ),
@@ -18,10 +18,12 @@ const targetFields = {
   ),
 };
 
-export const targetInputSchema = z.object(targetFields).refine(hasTapTarget, {
-  message: "Specify service or url.",
-  path: ["service"],
-});
+export const targetInputSchema = z
+  .object(tapTargetInputShape)
+  .refine(hasTapTarget, {
+    message: "Specify service or url.",
+    path: ["service"],
+  });
 export type TargetInput = z.infer<typeof targetInputSchema>;
 
 export const registrySearchInputSchema = z.object({
@@ -37,7 +39,7 @@ export const registrySearchInputSchema = z.object({
 
 export const columnsInputSchema = z
   .object({
-    ...targetFields,
+    ...tapTargetInputShape,
     table: textSchema.describe(
       "Exact TAP table name returned by prior metadata inspection.",
     ),
@@ -72,7 +74,7 @@ const uploadsSchema = z
     "TAP uploads forwarded to the service; local file paths are not supported.",
   );
 
-const tapQueryFields = {
+export const tapQueryInputShape = {
   format: z.enum(tapOutputFormats).describe("MCP result output format."),
   maxrec: maxrecSchema.optional(),
   query: textSchema.describe(
@@ -84,8 +86,8 @@ const tapQueryFields = {
 
 export const tapQueryInputSchema = z
   .object({
-    ...targetFields,
-    ...tapQueryFields,
+    ...tapTargetInputShape,
+    ...tapQueryInputShape,
   })
   .refine(hasTapTarget, {
     message: "Specify service or url.",
@@ -102,7 +104,7 @@ const waitMsSchema = z
   .describe("Wait duration in milliseconds.");
 
 const tapJobTargetFields = {
-  ...targetFields,
+  ...tapTargetInputShape,
   jobIdOrUrl: textSchema.describe("TAP async job id or absolute job URL."),
 };
 
@@ -115,7 +117,7 @@ const hostedTapJobTargetFields = {
 
 export const tapJobSubmitInputSchema = z
   .object({
-    ...targetFields,
+    ...tapTargetInputShape,
     maxrec: maxrecSchema.optional(),
     query: textSchema.describe(
       "Exact metadata-backed ADQL query text. Use TOP for a query-level bound; do not use LIMIT.",
@@ -380,6 +382,7 @@ export const tapQueryOutputSchema = z
       });
     }
   });
+export type TapQueryOutput = z.infer<typeof tapQueryOutputSchema>;
 
 export const tapJobFetchOutputSchema = z
   .object({

@@ -4,18 +4,26 @@ import {
 } from "@starfetch-js/mcp";
 import { z } from "zod/v4";
 
-import { finalizeStarfetchTableView } from "./presentation-bounds.js";
+import {
+  finalizeStarfetchTableView,
+  finalizeStarfetchWidgetTableDataset,
+} from "./presentation-bounds.js";
 import {
   StarfetchPresentationError,
+  type StarfetchTableViewDraft,
   type StarfetchTableViewV1,
+  type StarfetchWidgetTableDatasetV1,
 } from "./presentation-contract.js";
 
 export {
   STARFETCH_TABLE_VIEW_LIMITS_V1,
+  STARFETCH_WIDGET_TABLE_LIMITS_V1,
   StarfetchPresentationError,
   starfetchTableViewV1Schema,
+  starfetchWidgetTableDatasetV1Schema,
   type StarfetchPresentationErrorCode,
   type StarfetchTableViewV1,
+  type StarfetchWidgetTableDatasetV1,
 } from "./presentation-contract.js";
 
 type CanonicalScientificResult = Extract<
@@ -44,8 +52,18 @@ const scientificRowsSchema = z.array(
 );
 
 export function createStarfetchTableView(input: unknown): StarfetchTableViewV1 {
+  return finalizeStarfetchTableView(createStarfetchTableDraft(input));
+}
+
+export function createStarfetchWidgetTableDataset(
+  input: unknown,
+): StarfetchWidgetTableDatasetV1 {
+  return finalizeStarfetchWidgetTableDataset(createStarfetchTableDraft(input));
+}
+
+function createStarfetchTableDraft(input: unknown): StarfetchTableViewDraft {
   try {
-    return createStarfetchTableViewUnchecked(input);
+    return createStarfetchTableDraftUnchecked(input);
   } catch (error) {
     if (error instanceof StarfetchPresentationError) {
       throw error;
@@ -58,9 +76,9 @@ export function createStarfetchTableView(input: unknown): StarfetchTableViewV1 {
   }
 }
 
-function createStarfetchTableViewUnchecked(
+function createStarfetchTableDraftUnchecked(
   input: unknown,
-): StarfetchTableViewV1 {
+): StarfetchTableViewDraft {
   const result = parseStarfetchTablePresentationSource(input);
 
   switch (result.sourceTool) {
@@ -78,13 +96,13 @@ function createStarfetchTableViewUnchecked(
         syncRequest: preset.syncRequest ?? null,
       }));
 
-      return finalizeStarfetchTableView({
+      return {
         columns,
         resultKind: "presets",
         rows,
         source: { tool: result.sourceTool },
         title: "Starfetch TAP service presets",
-      });
+      };
     }
 
     case "starfetch_registry_search": {
@@ -105,7 +123,7 @@ function createStarfetchTableViewUnchecked(
         standardId: service.standardId,
       }));
 
-      return finalizeStarfetchTableView({
+      return {
         columns,
         resultKind: "registry-services",
         rows,
@@ -114,7 +132,7 @@ function createStarfetchTableViewUnchecked(
           tool: result.sourceTool,
         },
         title: "TAP registry service matches",
-      });
+      };
     }
 
     case "starfetch_tap_tables": {
@@ -130,13 +148,13 @@ function createStarfetchTableViewUnchecked(
       }));
       const target = result.structuredContent.diagnostics.target;
 
-      return finalizeStarfetchTableView({
+      return {
         columns,
         resultKind: "tables",
         rows,
         source: { target, tool: result.sourceTool },
         title: `${targetName(target)} tables`,
-      });
+      };
     }
 
     case "starfetch_tap_columns": {
@@ -156,7 +174,7 @@ function createStarfetchTableViewUnchecked(
       }));
       const diagnostics = result.structuredContent.diagnostics;
 
-      return finalizeStarfetchTableView({
+      return {
         columns,
         resultKind: "columns",
         rows,
@@ -166,7 +184,7 @@ function createStarfetchTableViewUnchecked(
           tool: result.sourceTool,
         },
         title: `${diagnostics.table} columns`,
-      });
+      };
     }
 
     case "starfetch_tap_query": {
@@ -175,7 +193,7 @@ function createStarfetchTableViewUnchecked(
       const rows = parseScientificRows(data.content);
       assertScientificRowsMatchFields(rows, data.fields);
 
-      return finalizeStarfetchTableView({
+      return {
         columns: scientificColumns(data.fields),
         resultKind: "query-rows",
         rows,
@@ -193,7 +211,7 @@ function createStarfetchTableViewUnchecked(
           tool: result.sourceTool,
         },
         title: `${targetName(diagnostics.target)} query results`,
-      });
+      };
     }
 
     case "starfetch_tap_job_fetch": {
@@ -202,7 +220,7 @@ function createStarfetchTableViewUnchecked(
       const rows = parseScientificRows(data.content);
       assertScientificRowsMatchFields(rows, data.fields);
 
-      return finalizeStarfetchTableView({
+      return {
         columns: scientificColumns(data.fields),
         resultKind: "async-query-rows",
         rows,
@@ -217,7 +235,7 @@ function createStarfetchTableViewUnchecked(
           tool: result.sourceTool,
         },
         title: `${targetName(diagnostics.target)} async job results`,
-      });
+      };
     }
   }
 

@@ -1,17 +1,22 @@
-import { ChevronRight, Copy } from "lucide-react";
+import { Check, ChevronRight, Copy } from "lucide-react";
 import { Fragment, useEffect, useState, type CSSProperties } from "react";
 
-import type { StarfetchTableViewV1 } from "../../src/presentation-contract.js";
+import {
+  STARFETCH_WIDGET_TABLE_LIMITS_V1,
+  type StarfetchTableViewV1,
+} from "../../src/presentation-contract.js";
 import {
   highlightAdql,
   type AdqlToken,
   type HighlightedAdql,
 } from "./adql-highlight.js";
+import { formatDurationMs } from "./format-duration.js";
 
 type ResultDetailsProps = Readonly<{ view: StarfetchTableViewV1 }>;
-type ExactQueryProps = ResultDetailsProps & Readonly<{ onCopy: () => void }>;
+type ExactQueryProps = ResultDetailsProps &
+  Readonly<{ copied: boolean; onCopy: () => void }>;
 
-export function ExactQuery({ onCopy, view }: ExactQueryProps) {
+export function ExactQuery({ copied, onCopy, view }: ExactQueryProps) {
   const query =
     view.source.tool === "starfetch_tap_query" ? view.source.query : null;
   const [highlighted, setHighlighted] = useState<HighlightedAdql>();
@@ -40,13 +45,17 @@ export function ExactQuery({ onCopy, view }: ExactQueryProps) {
       <header>
         <h2>ADQL</h2>
         <button
-          aria-label="Copy ADQL"
+          aria-label={copied ? "Copied ADQL" : "Copy ADQL"}
           className="icon-button"
           onClick={onCopy}
-          title="Copy ADQL"
+          title={copied ? "Copied ADQL" : "Copy ADQL"}
           type="button"
         >
-          <Copy aria-hidden="true" size={16} strokeWidth={1.75} />
+          {copied ? (
+            <Check aria-hidden="true" size={16} strokeWidth={1.75} />
+          ) : (
+            <Copy aria-hidden="true" size={16} strokeWidth={1.75} />
+          )}
         </button>
       </header>
       <pre className={highlighted ? "shiki" : undefined}>
@@ -95,13 +104,20 @@ export function ResultNotices({ view }: ResultDetailsProps) {
   return (
     <section className="notices" aria-label="Result notices">
       <div className="notice-badges">
-        {overflow ? <strong>TAP overflow</strong> : null}
+        {overflow ? <strong>More rows available</strong> : null}
         {clipped ? <strong>Presentation clipped</strong> : null}
       </div>
       {clipped ? (
         <p>
           {view.rows.length} of {view.clipping.sourceRows} source rows retained
           for display.
+        </p>
+      ) : null}
+      {overflow ? (
+        <p>
+          {view.source.tool === "starfetch_tap_query"
+            ? `Increase the ${view.source.effectiveMaxrec}-row limit (maximum ${STARFETCH_WIDGET_TABLE_LIMITS_V1.maxRows.toLocaleString("en-US")}), or narrow the query.`
+            : "Narrow the query to retrieve a complete subset."}
         </p>
       ) : null}
     </section>
@@ -171,7 +187,10 @@ function SourceDetails({ source }: { source: StarfetchTableViewV1["source"] }) {
               value={formatName(source.requestFormat)}
             />
             <Detail label="Table view" value={formatName(source.format)} />
-            <Detail label="Duration" value={`${source.durationMs} ms`} />
+            <Detail
+              label="Duration"
+              value={formatDurationMs(source.durationMs)}
+            />
             <Detail label="Run ID" value={source.runId} />
           </>
         ) : null}
@@ -184,7 +203,10 @@ function SourceDetails({ source }: { source: StarfetchTableViewV1["source"] }) {
               value={formatName(source.sourceFormat)}
             />
             <Detail label="Table view" value={formatName(source.format)} />
-            <Detail label="Duration" value={`${source.durationMs} ms`} />
+            <Detail
+              label="Duration"
+              value={formatDurationMs(source.durationMs)}
+            />
           </>
         ) : null}
       </dl>

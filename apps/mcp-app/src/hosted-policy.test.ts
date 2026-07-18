@@ -40,6 +40,25 @@ describe("hosted MCP execution policy", () => {
     ).toThrow("WAIT_LIMIT_EXCEEDED");
   });
 
+  it("uses each tool's fallback while allowing table queries up to 10,000 rows", () => {
+    expect(
+      policy.prepareQuery({
+        fallbackMaxrec: 1_000,
+        incomingSignal,
+        requestedMaxrec: undefined,
+        uploads: undefined,
+      }).maxrec,
+    ).toBe(1_000);
+    expect(
+      policy.prepareQuery({
+        fallbackMaxrec: 100,
+        incomingSignal,
+        requestedMaxrec: 10_000,
+        uploads: undefined,
+      }).maxrec,
+    ).toBe(10_000);
+  });
+
   it("issues non-expiring capabilities bound to one job", () => {
     const jobUrl = "https://example.test/tap/async/job-1";
     const capability = policy.issueJobCapability(jobUrl);

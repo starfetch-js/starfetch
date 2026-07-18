@@ -2,12 +2,48 @@ import { describe, expect, it } from "vitest";
 
 import {
   createStarfetchTableView,
+  createStarfetchWidgetTableDataset,
   STARFETCH_TABLE_VIEW_LIMITS_V1,
   StarfetchPresentationError,
   starfetchTableViewV1Schema,
+  starfetchWidgetTableDatasetV1Schema,
 } from "./presentation.js";
 
 describe("Starfetch table view bounds", () => {
+  it("keeps the model view small while retaining the widget-only dataset", () => {
+    const source = {
+      sourceTool: "starfetch_tap_query",
+      structuredContent: {
+        data: {
+          content: JSON.stringify(
+            Array.from({ length: 125 }, (_, index) => ({ id: String(index) })),
+          ),
+          fields: [{ name: "id" }],
+          format: "json",
+        },
+        diagnostics: {
+          durationMs: 1,
+          effectiveMaxrec: 1_000,
+          format: "json",
+          query: "SELECT TOP 125 id FROM catalog",
+          requestFormat: "votable",
+          target: { baseUrl: "https://example.test/tap" },
+          uploadCount: 0,
+        },
+      },
+    };
+
+    const modelView = createStarfetchTableView(source);
+    const dataset = createStarfetchWidgetTableDataset(source);
+
+    expect(modelView.rows).toHaveLength(100);
+    expect(dataset.view.rows).toHaveLength(125);
+    expect(starfetchTableViewV1Schema.safeParse(dataset.view).success).toBe(
+      false,
+    );
+    expect(starfetchWidgetTableDatasetV1Schema.parse(dataset)).toEqual(dataset);
+  });
+
   it("clips only whole trailing rows and columns in a deterministic order", () => {
     const sourceRow = Object.fromEntries(
       Array.from(

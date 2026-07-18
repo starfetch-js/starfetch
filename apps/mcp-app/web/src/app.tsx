@@ -6,6 +6,11 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  saveFileThroughChatGpt,
+  subscribeToChatGptToolResults,
+  writeClipboardWithFallback,
+} from "./chatgpt-compat.js";
+import {
   StarfetchHostSession,
   type HostContextListener,
   type StarfetchDisplayMode,
@@ -26,7 +31,7 @@ export function StarfetchApp() {
         setDecoded(
           result.isError
             ? { ok: false, message: "Starfetch could not render this result." }
-            : decodeTableView(result.structuredContent),
+            : decodeTableView(result.structuredContent, result._meta),
         );
       };
       createdApp.ontoolcancelled = () => {
@@ -40,10 +45,37 @@ export function StarfetchApp() {
   });
   useHostStyleVariables(app, app?.getHostContext());
 
+  useEffect(() => {
+    if (!isConnected) return;
+    return subscribeToChatGptToolResults((snapshot) => {
+      const next = decodeTableView(
+        snapshot.structuredContent,
+        snapshot.metadata,
+      );
+      if (next.ok) setDecoded(next);
+    });
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (!isConnected || decoded !== undefined) return;
+    const timeout = window.setTimeout(() => {
+      setDecoded({
+        ok: false,
+        message:
+          "The host did not provide a table result. Run the table query again.",
+      });
+    }, 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [decoded, isConnected]);
+
   const host = useMemo(
     () =>
       app
-        ? new StarfetchHostSession(createAppBridge(app), writeClipboard)
+        ? new StarfetchHostSession(
+            createAppBridge(app),
+            writeClipboardWithFallback,
+            saveFileThroughChatGpt,
+          )
         : null,
     [app],
   );
@@ -83,19 +115,18 @@ function createAppBridge(app: App): StarfetchHostBridge {
     async requestDisplayMode(mode: StarfetchDisplayMode) {
       return (await app.requestDisplayMode({ mode })).mode;
     },
+    updateModelContext: (params) => app.updateModelContext(params),
   };
-}
-
-function writeClipboard(value: string): Promise<void> {
-  if (navigator.clipboard?.writeText === undefined) {
-    return Promise.reject(new Error("Clipboard unavailable"));
-  }
-  return navigator.clipboard.writeText(value);
 }
 
 function LoadingState({ message }: { message: string }) {
   return (
-    <main className="message-state" aria-live="polite">
+    <main className="message-state" aria-label={message} aria-live="polite">
+      <div className="loading-skeleton" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <p>{message}</p>
     </main>
   );

@@ -18,6 +18,17 @@ describe("decodeTableView", () => {
 
     expect(decodeTableView(view)).toEqual({ ok: true, view });
     expect(
+      decodeTableView(
+        { contractVersion: 2 },
+        {
+          starfetchTableDataset: {
+            datasetVersion: 1,
+            view,
+          },
+        },
+      ),
+    ).toEqual({ ok: true, view });
+    expect(
       decodeTableView({ contractVersion: 2, secret: "do not echo" }),
     ).toEqual({
       message: "The host returned an invalid Starfetch table result.",

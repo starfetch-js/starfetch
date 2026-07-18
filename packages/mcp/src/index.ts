@@ -5,13 +5,21 @@ import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 import { createStarfetchMcpServer } from "./server.js";
-
 export {
   createStarfetchMcpServer,
   type JobCapabilityOperation,
   type StarfetchMcpPolicy,
   type StarfetchMcpServerOptions,
 } from "./server.js";
+export { unrestrictedStarfetchMcpPolicy } from "./policy.js";
+export {
+  tapQueryInputShape,
+  tapQueryInputSchema,
+  tapTargetInputShape,
+  type TapQueryInput,
+  type TapQueryOutput,
+} from "./schemas.js";
+export { executeStarfetchTapQuery } from "./query-execution.js";
 export {
   parseStarfetchTablePresentationSource,
   type StarfetchTablePresentationSource,

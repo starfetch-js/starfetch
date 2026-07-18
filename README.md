@@ -467,12 +467,14 @@ npm run dev:http
 
 It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
 `http://127.0.0.1:3000/health`. Each MCP request gets a fresh stateless
-`@starfetch-js/mcp` server. The HTTP surface keeps the 12 canonical
-Starfetch tools unchanged and adds `starfetch_render_table`, which presents an
-existing bounded `StarfetchTableViewV1` through the immutable
-`ui://starfetch/table/v1` MCP Apps resource. The renderer never submits TAP
-requests; ordinary MCP clients can continue using the canonical text and
-structured results without loading the widget. Configuration is
+`@starfetch-js/mcp` server. The HTTP surface keeps the 12 canonical Starfetch
+tools unchanged and adds two UI-linked tools through the immutable
+`ui://starfetch/table/v1` MCP Apps resource. `starfetch_render_table` presents
+an existing table view without submitting a TAP request.
+`starfetch_query_table` runs a synchronous JSON query for the interactive
+scientific table; its full loaded table is widget-only while the model receives
+a 20-row preview. Ordinary MCP clients can continue using the canonical text
+and structured results without loading the widget. Configuration is
 environment-only:
 
 - `HOST` defaults to `127.0.0.1`; set `0.0.0.0` explicitly for all interfaces.
@@ -486,8 +488,11 @@ environment-only:
 
 The anonymous HTTP policy is a fixed, tested product profile rather than a
 set of independently tunable environment variables. It caps MCP requests at 2
-MiB, TAP responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 100, redirects
-at 3, outbound requests at 4 concurrent operations, and tools at 60 seconds.
+MiB, TAP responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 10,000,
+redirects at 3, outbound requests at 4 concurrent operations, and tools at 60
+seconds. Canonical synchronous queries still default to `MAXREC=100`; the
+interactive table query defaults to `MAXREC=1000` and caps its widget payload
+at 6 MiB.
 Job waits default to 30 seconds, cap at 45 seconds, and poll between 1 and 10
 seconds. The process admits 100 MCP requests per minute globally; deployments
 that need per-client limits should enforce them at a trusted HTTPS ingress.
@@ -558,14 +563,17 @@ allow Inspector's browser origins explicitly when starting the app:
 ALLOWED_ORIGINS=http://localhost:6274,http://127.0.0.1:6274 npm run dev:http
 ```
 
-The widget is a portable MCP Apps client. It uses the standard host bridge for
-tool results, theme variables, display-mode requests, clipboard access, and file
-downloads, so the table has no direct dependency on a ChatGPT- or Claude-only
-browser global. Its React UI uses semantic table markup, TanStack Table sorting,
-TanStack Virtual row rendering for larger results, and fine-grained Shiki SQL
-highlighting for exact ADQL. Inline mode exposes the complete bounded result
-through a capped two-axis scroll viewport. A labeled `Show more` or `Show less`
-control below the table requests the corresponding host display mode. The
+The widget uses the standard MCP Apps host bridge for tool results, theme
+variables, display-mode requests, model-context updates, and file downloads.
+It also reads ChatGPT's initial tool globals when present and uses ChatGPT's
+file APIs only as a download fallback. Its React UI uses semantic table markup,
+global TanStack Table sorting, page-scoped row selection, 100-row client-side
+pages, and fine-grained Shiki SQL highlighting for exact ADQL. The table uses a
+capped two-axis scroll viewport. An icon-only control in
+the action toolbar requests fullscreen or inline display mode. Another action
+can expose selected rows or the current 100-row page to the model for the next
+turn; it does not expose the whole loaded table. The action remains available,
+and each press replaces the previously pending model-context snapshot. The
 resource declares no network or static-resource domains and requests only
 clipboard-write permission.
 
@@ -587,10 +595,10 @@ The image workflow publishes immutable containers to
 
 For ChatGPT Developer Mode or another remote MCP Apps host, expose the local MCP
 endpoint through HTTPS, add the resulting `/mcp` URL to the host, call a
-canonical Starfetch tool, then pass its bounded table view to
-`starfetch_render_table`. Verify light and dark themes, `Show more` and `Show
-less`, horizontal scrolling, sorting, highlighted ADQL and copying, and TSV,
-CSV, and JSON copy and download actions. Host-specific visual differences
+metadata tool to inspect the target, then call `starfetch_query_table`. Verify
+light and dark themes, fullscreen and inline modes, horizontal scrolling,
+sorting, paging, highlighted ADQL and copying, current-page model context, and
+TSV, CSV, and JSON copy and download actions. Host-specific visual differences
 should be handled through the bridge theme variables rather than a second
 component implementation.
 
