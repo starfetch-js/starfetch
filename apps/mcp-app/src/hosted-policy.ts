@@ -18,7 +18,7 @@ export const hostedPolicyLimits = Object.freeze({
   maxRedirects: 3,
   maxRequestBytes: 2_097_152,
   maxResponseBytes: 8_388_608,
-  maxrec: 100,
+  maxrec: 10_000,
   ratePerMinute: 100,
   toolTimeoutMs: 60_000,
   wait: Object.freeze({
@@ -60,13 +60,13 @@ export function createHostedStarfetchMcpPolicy(options: {
     prepareQuery(input) {
       assertUploadsAllowed(input.uploads);
       return {
-        maxrec: effectiveMaxrec(input.requestedMaxrec),
+        maxrec: effectiveMaxrec(input.requestedMaxrec, input.fallbackMaxrec),
         signal: signal(input.incomingSignal),
       };
     },
     prepareRegistry(input) {
       return {
-        maxrec: effectiveMaxrec(input.requestedMaxrec),
+        maxrec: effectiveMaxrec(input.requestedMaxrec, input.fallbackMaxrec),
         signal: signal(input.incomingSignal),
       };
     },
@@ -103,8 +103,11 @@ class HostedMcpPolicyError extends Error {
   }
 }
 
-function effectiveMaxrec(requested: number | undefined): number {
-  const value = requested ?? hostedPolicyLimits.maxrec;
+function effectiveMaxrec(
+  requested: number | undefined,
+  fallback: number,
+): number {
+  const value = requested ?? fallback;
   if (value > hostedPolicyLimits.maxrec) {
     throw new HostedMcpPolicyError(
       "MAXREC_EXCEEDED",

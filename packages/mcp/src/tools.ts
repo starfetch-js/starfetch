@@ -3,12 +3,8 @@ import {
   defaultRegistryUrl,
   defaultTapPresets,
   registry,
-  tapRequestFormatForOutput,
-  type QueryOptions,
-  type TapOutputFormat,
   type TapRegistryOptions,
   type TapRegistrySearchOptions,
-  type TapSyncFormat,
 } from "@starfetch-js/core";
 import { z } from "zod/v4";
 
@@ -26,18 +22,18 @@ import {
   targetInputSchema,
   tapQueryInputSchema,
   tapQueryOutputSchema,
-  type TapQueryInput,
 } from "./schemas.js";
+import {
+  DEFAULT_TAP_QUERY_MAXREC,
+  executeStarfetchTapQuery,
+} from "./query-execution.js";
 import { runTool, success, targetDiagnostics } from "./results.js";
-import { createTapQueryData } from "./query-result.js";
-import type { StarfetchMcpRuntimeOptions } from "./server.js";
-import { createTapClient, createTapUploads } from "./tap-client.js";
+import { type StarfetchMcpRuntimeOptions } from "./server.js";
+import { createTapClient } from "./tap-client.js";
 import {
   readOnlyLocalAnnotations,
   readOnlyNetworkAnnotations,
 } from "./tool-annotations.js";
-
-const defaultTapQueryMaxrec = 100;
 
 export function registerStarfetchTools(
   server: McpServer,
@@ -103,7 +99,7 @@ function registerRegistryTools(
         }
 
         const prepared = options.policy.prepareRegistry({
-          fallbackMaxrec: defaultTapQueryMaxrec,
+          fallbackMaxrec: DEFAULT_TAP_QUERY_MAXREC,
           incomingSignal: extra.signal,
           requestedMaxrec: maxrec,
         });
@@ -248,70 +244,12 @@ function registerQueryTools(
       outputSchema: tapQueryOutputSchema,
       title: "Run bounded TAP query",
     },
-    async (input, extra) =>
-      runTool(async () => {
-        const startedAt = performance.now();
-        const client = createTapClient(input, options);
-        const format = input.format;
-        const requestFormat = tapRequestFormatForOutput(format);
-        const prepared = options.policy.prepareQuery({
-          fallbackMaxrec: defaultTapQueryMaxrec,
-          incomingSignal: extra.signal,
-          requestedMaxrec: input.maxrec,
-          uploads: input.uploads,
-        });
-        const maxrec = prepared.maxrec;
-        const result = await client.query(
-          input.query,
-          createTapQueryOptions(input, requestFormat, maxrec, prepared.signal),
-        );
-        const data = await createTapQueryData(result, format);
-
-        const diagnostics: {
-          durationMs: number;
-          effectiveMaxrec: number;
-          format: TapOutputFormat;
-          requestFormat: TapSyncFormat;
-          query: string;
-          runId?: string;
-          target: ReturnType<typeof targetDiagnostics>;
-          uploadCount: number;
-        } = {
-          durationMs: performance.now() - startedAt,
-          effectiveMaxrec: maxrec,
-          format,
-          requestFormat,
-          query: input.query,
-          target: targetDiagnostics(client.target),
-          uploadCount: input.uploads?.length ?? 0,
-        };
-
-        if (input.runId !== undefined) {
-          diagnostics.runId = input.runId;
-        }
-
-        return success(data, diagnostics);
-      }),
+    (input, extra) =>
+      executeStarfetchTapQuery(
+        input,
+        extra.signal,
+        options,
+        DEFAULT_TAP_QUERY_MAXREC,
+      ),
   );
-}
-
-function createTapQueryOptions(
-  input: TapQueryInput,
-  format: TapSyncFormat,
-  maxrec: number,
-  signal: AbortSignal,
-): QueryOptions {
-  const queryOptions: QueryOptions = { format, maxrec, signal };
-
-  if (input.runId !== undefined) {
-    queryOptions.runId = input.runId;
-  }
-
-  const uploads = createTapUploads(input.uploads);
-
-  if (uploads !== undefined) {
-    queryOptions.uploads = uploads;
-  }
-
-  return queryOptions;
 }

@@ -5,12 +5,17 @@ import {
   type TapResultField,
 } from "@starfetch-js/core";
 
-export type TapQueryData = {
-  content: string;
-  format: TapOutputFormat;
-  fields?: TapResultField[];
-  overflow?: boolean;
-};
+export type TapQueryData =
+  | {
+      content: string;
+      fields: TapResultField[];
+      format: "json" | "jsonl";
+      overflow?: boolean;
+    }
+  | {
+      content: string;
+      format: Exclude<TapOutputFormat, "json" | "jsonl">;
+    };
 
 export async function createTapQueryData(
   result: TapResult,

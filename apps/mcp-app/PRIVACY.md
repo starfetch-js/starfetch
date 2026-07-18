@@ -98,9 +98,14 @@ from the remote TAP service.
 ## Table renderer
 
 The interactive table receives bounded structured content from the MCP host.
-It declares no external network or static-resource domains and does not send
-table data to another service. It can request clipboard access so the user can
-copy displayed data.
+Scientific table queries can load up to 10,000 rows within a 6 MiB widget
+payload while exposing only a short preview to the model. The user can
+explicitly expose selected rows or the current 100-row page to the model for a
+later turn. Each use replaces the previously pending page or selection. The
+widget declares no external network or static-resource domains and can request
+clipboard access so the user can copy displayed data. When the standard MCP
+Apps download method is unavailable, ChatGPT can temporarily store a generated
+export file to provide its download URL.
 
 ## User choices
 

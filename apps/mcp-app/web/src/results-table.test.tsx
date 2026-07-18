@@ -9,7 +9,23 @@ import { ResultsTable } from "./results-table.js";
 afterEach(cleanup);
 
 describe("ResultsTable", () => {
-  it("renders every bounded result through a virtualized inline viewport", () => {
+  it("rounds request durations to whole milliseconds", () => {
+    const view = createQueryView(1);
+    if (view.source.tool !== "starfetch_tap_query") {
+      throw new Error("Expected a TAP query fixture.");
+    }
+    const timedView: StarfetchTableViewV1 = {
+      ...view,
+      source: { ...view.source, durationMs: 4_143.163_209_000_602 },
+    };
+
+    render(<ResultsTable host={createHost()} view={timedView} />);
+
+    expect(screen.getAllByText("4143 ms")).toHaveLength(2);
+    expect(screen.queryByText("4143.163209000602 ms")).toBeNull();
+  });
+
+  it("renders the complete 100-row page in the inline viewport", () => {
     render(<ResultsTable host={createHost()} view={createQueryView(100)} />);
 
     expect(
@@ -20,15 +36,14 @@ describe("ResultsTable", () => {
     expect(screen.queryByText(/rows shown/)).toBeNull();
 
     const table = screen.getByRole("table", { name: "Gaia source results" });
-    expect(table.parentElement?.dataset.virtualized).toBe("true");
-    expect(within(table).getAllByRole("row").length).toBeLessThan(101);
+    expect(within(table).getAllByRole("row")).toHaveLength(101);
     expect(
       within(table).getByRole("button", {
         name: "Sort Source ID ascending",
       }),
     ).toBeTruthy();
     expect(screen.getByText("long · meta.id;meta.main")).toBeTruthy();
-    expect(screen.queryByText("source-99")).toBeNull();
+    expect(screen.getByText("source-99")).toBeTruthy();
   });
 
   it("sorts without changing exact values and copies the sorted bounded rows", async () => {
@@ -53,7 +68,8 @@ describe("ResultsTable", () => {
         /^source_id\tra\nsource-01\t50[\s\S]*source-12\t51\.1$/,
       ),
     );
-    expect(screen.getByRole("status").textContent).toBe("Copied TSV.");
+    expect(screen.getByRole("button", { name: "Copied data" })).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("sorts scientific numeric strings numerically with missing values last", async () => {
@@ -162,8 +178,8 @@ describe("ResultsTable", () => {
     expect(screen.getByRole("button", { name: "Copy data" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Download data" })).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "Open fullscreen" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Open fullscreen" }),
+    ).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Copy data" }));
 
@@ -171,9 +187,13 @@ describe("ResultsTable", () => {
     expect(screen.getByRole("menuitem", { name: "Copy as TSV" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Copy as CSV" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Copy as JSON" })).toBeTruthy();
+
+    await user.click(screen.getByRole("menuitem", { name: "Copy as TSV" }));
+    expect(screen.getByRole("button", { name: "Copied data" })).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("shows more and less rows through table controls below the table", async () => {
+  it("toggles fullscreen from an icon-only toolbar control", async () => {
     const user = userEvent.setup();
     const requestDisplayMode = vi.fn(
       async (mode: "inline" | "fullscreen") => mode,
@@ -191,18 +211,93 @@ describe("ResultsTable", () => {
       />,
     );
 
-    const displayControls = screen.getByRole("group", {
-      name: "Table display",
-    });
-    await user.click(
-      within(displayControls).getByRole("button", { name: "Show more" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open fullscreen" }));
     expect(requestDisplayMode).toHaveBeenCalledWith("fullscreen");
+    expect(screen.queryByRole("status")).toBeNull();
 
-    await user.click(
-      within(displayControls).getByRole("button", { name: "Show less" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Exit fullscreen" }));
     expect(requestDisplayMode).toHaveBeenCalledWith("inline");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not offer fullscreen on mobile hosts", () => {
+    render(
+      <ResultsTable
+        host={createHost({
+          context: {
+            availableDisplayModes: ["inline", "fullscreen"],
+            displayMode: "inline",
+            platform: "mobile",
+          },
+        })}
+        view={createQueryView(1)}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Open fullscreen" }),
+    ).toBeNull();
+  });
+
+  it("paginates the globally sorted table in 100-row pages", async () => {
+    const user = userEvent.setup();
+    render(<ResultsTable host={createHost()} view={createQueryView(250)} />);
+
+    expect(screen.getByText("Page 1 of 3 · rows 1–100 of 250")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Last page" }));
+    expect(screen.getByText("Page 3 of 3 · rows 201–250 of 250")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(screen.getByText("Page 2 of 3 · rows 101–200 of 250")).toBeTruthy();
+  });
+
+  it("repeatedly analyzes the current page or selected rows", async () => {
+    const user = userEvent.setup();
+    const updateModelContext = vi.fn().mockResolvedValue({});
+    render(
+      <ResultsTable
+        host={createHost({
+          capabilities: { updateModelContext: {} },
+          updateModelContext,
+        })}
+        view={createQueryView(3)}
+      />,
+    );
+
+    const analyzePage = screen.getByRole("button", {
+      name: "Analyze this page",
+    });
+    expect(analyzePage.textContent).toBe("Analyze this page");
+    await user.click(analyzePage);
+    expect(updateModelContext).toHaveBeenNthCalledWith(1, {
+      content: [
+        expect.objectContaining({
+          text: expect.stringMatching(/"rowCount": 3[\s\S]*"scope": "page"/),
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("checkbox", { name: "Select row 1" }));
+    await user.click(
+      screen.getByRole("button", { name: "Analyze this selection" }),
+    );
+    expect(updateModelContext).toHaveBeenNthCalledWith(2, {
+      content: [
+        expect.objectContaining({
+          text: expect.stringMatching(
+            /"rowCount": 1[\s\S]*"source_id": "source-01"[\s\S]*"scope": "selection"/,
+          ),
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("checkbox", { name: "Select row 2" }));
+    await user.click(
+      screen.getByRole("button", { name: "Analyze this selection" }),
+    );
+    expect(updateModelContext).toHaveBeenCalledTimes(3);
+    expect(screen.getByRole("status").textContent).toBe(
+      "Sent 2 selected rows to chat.",
+    );
   });
 
   it("presents a completed empty result without making it look like an error", () => {
@@ -232,7 +327,12 @@ describe("ResultsTable", () => {
     }
     render(<ResultsTable host={createHost({ writeClipboard })} view={view} />);
 
-    expect(screen.getByText("TAP overflow")).toBeTruthy();
+    expect(screen.getByText("More rows available")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Increase the 100-row limit (maximum 10,000), or narrow the query.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Presentation clipped")).toBeTruthy();
     expect(
       screen.getByText("12 of 20 source rows retained for display."),
@@ -253,6 +353,10 @@ describe("ResultsTable", () => {
     expect(writeClipboard).toHaveBeenCalledWith(
       "SELECT TOP 100 source_id, ra FROM gaiadr3.gaia_source",
     );
+    expect(
+      within(queryPanel).getByRole("button", { name: "Copied ADQL" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Copied ADQL.")).toBeNull();
 
     expect(screen.getByText("Request details")).toBeTruthy();
     expect(screen.getByText("100 rows")).toBeTruthy();
@@ -261,7 +365,7 @@ describe("ResultsTable", () => {
     expect(screen.getByText("Unique Gaia source identifier.")).toBeTruthy();
   });
 
-  it("keeps the complete sorted row model virtualized in fullscreen", () => {
+  it("keeps the complete page visible in fullscreen", () => {
     render(
       <ResultsTable
         host={createHost({
@@ -275,8 +379,7 @@ describe("ResultsTable", () => {
     );
 
     const table = screen.getByRole("table", { name: "Gaia source results" });
-    expect(table.parentElement?.dataset.virtualized).toBe("true");
-    expect(within(table).getAllByRole("row").length).toBeLessThan(101);
+    expect(within(table).getAllByRole("row")).toHaveLength(101);
     expect(screen.queryByText("10 of 100 rows shown")).toBeNull();
   });
 });
@@ -286,6 +389,7 @@ function createHost({
   context = { displayMode: "inline" },
   downloadFile = vi.fn(),
   requestDisplayMode = vi.fn(),
+  updateModelContext = vi.fn(),
   writeClipboard = vi.fn(),
 }: {
   capabilities?: NonNullable<
@@ -294,6 +398,7 @@ function createHost({
   context?: NonNullable<ReturnType<StarfetchHostBridge["getHostContext"]>>;
   downloadFile?: StarfetchHostBridge["downloadFile"];
   requestDisplayMode?: StarfetchHostBridge["requestDisplayMode"];
+  updateModelContext?: StarfetchHostBridge["updateModelContext"];
   writeClipboard?: (value: string) => Promise<void>;
 } = {}): StarfetchHostSession {
   const bridge: StarfetchHostBridge = {
@@ -303,6 +408,7 @@ function createHost({
     getHostContext: () => context,
     removeHostContextListener: vi.fn(),
     requestDisplayMode,
+    updateModelContext,
   };
   return new StarfetchHostSession(bridge, writeClipboard);
 }

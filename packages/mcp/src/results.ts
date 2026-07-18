@@ -1,14 +1,18 @@
 import { StarfetchError, type ResolvedTapTarget } from "@starfetch-js/core";
 
-export type ToolResult = {
+export type ToolResult<
+  TStructuredContent extends Record<string, unknown> = Record<string, unknown>,
+> = {
   content: [{ type: "text"; text: string }];
   isError?: true;
-  structuredContent?: Record<string, unknown>;
+  structuredContent?: TStructuredContent;
 };
 
-export async function runTool(
-  callback: () => Promise<ToolResult>,
-): Promise<ToolResult> {
+export async function runTool<
+  TStructuredContent extends Record<string, unknown>,
+>(
+  callback: () => Promise<ToolResult<TStructuredContent>>,
+): Promise<ToolResult<TStructuredContent>> {
   try {
     return await callback();
   } catch (error) {
@@ -19,7 +23,7 @@ export async function runTool(
 export function success<TData, TDiagnostics extends Record<string, unknown>>(
   data: TData,
   diagnostics: TDiagnostics,
-): ToolResult {
+): ToolResult<{ data: TData; diagnostics: TDiagnostics }> {
   const structuredContent = { data, diagnostics };
 
   return {
@@ -47,7 +51,9 @@ export function targetDiagnostics(
   return diagnostics;
 }
 
-function toolError(error: unknown): ToolResult {
+function toolError<TStructuredContent extends Record<string, unknown>>(
+  error: unknown,
+): ToolResult<TStructuredContent> {
   const message = formatToolError(error);
 
   return {

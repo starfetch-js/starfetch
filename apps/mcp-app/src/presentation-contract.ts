@@ -8,6 +8,21 @@ export const STARFETCH_TABLE_VIEW_LIMITS_V1 = {
   maxStringBytes: 4_096,
 } as const;
 
+export const STARFETCH_WIDGET_TABLE_LIMITS_V1 = {
+  ...STARFETCH_TABLE_VIEW_LIMITS_V1,
+  maxCells: 320_000,
+  maxRows: 10_000,
+  maxSerializedBytes: 6_291_456,
+} as const;
+
+export type StarfetchTableViewLimits = Readonly<{
+  maxCells: number;
+  maxColumns: number;
+  maxRows: number;
+  maxSerializedBytes: number;
+  maxStringBytes: number;
+}>;
+
 export type StarfetchPresentationErrorCode =
   | "INVALID_SOURCE"
   | "UNSUPPORTED_FORMAT"
@@ -98,145 +113,154 @@ const resultKindByTool = {
   starfetch_tap_tables: "tables",
 } as const;
 
-export const starfetchTableViewV1Schema = z
-  .object({
-    contractVersion: z.literal(1),
-    resultKind: z.enum([
-      "async-query-rows",
-      "columns",
-      "presets",
-      "query-rows",
-      "registry-services",
-      "tables",
-    ]),
-    title: z.string(),
-    columns: z
-      .array(tableColumnSchema)
-      .max(STARFETCH_TABLE_VIEW_LIMITS_V1.maxColumns),
-    rows: z
-      .array(z.record(z.string(), jsonScalarSchema))
-      .max(STARFETCH_TABLE_VIEW_LIMITS_V1.maxRows),
-    source: sourceSchema,
-    state: z.enum(["empty", "populated"]),
-    clipping: z.object({
-      reasons: z.array(z.enum(["bytes", "columns", "rows"])),
-      sourceRows: z.number().int().nonnegative(),
-      sourceColumns: z.number().int().nonnegative(),
-    }),
-  })
-  .superRefine((view, context) => {
-    const expectedKind = resultKindByTool[view.source.tool];
-    if (view.resultKind !== expectedKind) {
-      context.addIssue({
-        code: "custom",
-        message: "Result kind does not match the source tool.",
-        path: ["resultKind"],
-      });
-    }
+function createTableViewSchema(limits: StarfetchTableViewLimits) {
+  return z
+    .object({
+      contractVersion: z.literal(1),
+      resultKind: z.enum([
+        "async-query-rows",
+        "columns",
+        "presets",
+        "query-rows",
+        "registry-services",
+        "tables",
+      ]),
+      title: z.string(),
+      columns: z.array(tableColumnSchema).max(limits.maxColumns),
+      rows: z.array(z.record(z.string(), jsonScalarSchema)).max(limits.maxRows),
+      source: sourceSchema,
+      state: z.enum(["empty", "populated"]),
+      clipping: z.object({
+        reasons: z.array(z.enum(["bytes", "columns", "rows"])),
+        sourceRows: z.number().int().nonnegative(),
+        sourceColumns: z.number().int().nonnegative(),
+      }),
+    })
+    .superRefine((view, context) => {
+      const expectedKind = resultKindByTool[view.source.tool];
+      if (view.resultKind !== expectedKind) {
+        context.addIssue({
+          code: "custom",
+          message: "Result kind does not match the source tool.",
+          path: ["resultKind"],
+        });
+      }
 
-    const columnKeys = view.columns.map((column) => column.key);
-    if (new Set(columnKeys).size !== columnKeys.length) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view column keys must be unique.",
-        path: ["columns"],
-      });
-    }
-    for (const [index, row] of view.rows.entries()) {
+      const columnKeys = view.columns.map((column) => column.key);
+      if (new Set(columnKeys).size !== columnKeys.length) {
+        context.addIssue({
+          code: "custom",
+          message: "Table view column keys must be unique.",
+          path: ["columns"],
+        });
+      }
+      for (const [index, row] of view.rows.entries()) {
+        if (
+          Object.keys(row).length !== columnKeys.length ||
+          columnKeys.some((key) => !(key in row))
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: "Table view rows must match the ordered columns.",
+            path: ["rows", index],
+          });
+        }
+      }
+
+      const expectedState =
+        view.clipping.sourceRows === 0 ? "empty" : "populated";
+      if (view.state !== expectedState) {
+        context.addIssue({
+          code: "custom",
+          message: "Table view state does not match its source row count.",
+          path: ["state"],
+        });
+      }
+      const rowClippingApplied = view.clipping.sourceRows > view.rows.length;
+      const columnClippingApplied =
+        view.clipping.sourceColumns > view.columns.length;
+      const clippingApplied = rowClippingApplied || columnClippingApplied;
+      const reasons = new Set(view.clipping.reasons);
+      const reasonsMatchClipping =
+        (!rowClippingApplied || reasons.has("rows") || reasons.has("bytes")) &&
+        (!columnClippingApplied ||
+          reasons.has("columns") ||
+          reasons.has("bytes")) &&
+        (rowClippingApplied || !reasons.has("rows")) &&
+        (columnClippingApplied || !reasons.has("columns")) &&
+        (clippingApplied || !reasons.has("bytes"));
+
       if (
-        Object.keys(row).length !== columnKeys.length ||
-        columnKeys.some((key) => !(key in row))
+        view.clipping.sourceRows < view.rows.length ||
+        view.clipping.sourceColumns < view.columns.length ||
+        reasons.size !== view.clipping.reasons.length ||
+        !reasonsMatchClipping
       ) {
         context.addIssue({
           code: "custom",
-          message: "Table view rows must match the ordered columns.",
-          path: ["rows", index],
+          message: "Table view clipping metadata is inconsistent.",
+          path: ["clipping"],
         });
       }
-    }
 
-    const expectedState =
-      view.clipping.sourceRows === 0 ? "empty" : "populated";
-    if (view.state !== expectedState) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view state does not match its source row count.",
-        path: ["state"],
-      });
-    }
-    const rowClippingApplied = view.clipping.sourceRows > view.rows.length;
-    const columnClippingApplied =
-      view.clipping.sourceColumns > view.columns.length;
-    const clippingApplied = rowClippingApplied || columnClippingApplied;
-    const reasons = new Set(view.clipping.reasons);
-    const reasonsMatchClipping =
-      (!rowClippingApplied || reasons.has("rows") || reasons.has("bytes")) &&
-      (!columnClippingApplied ||
-        reasons.has("columns") ||
-        reasons.has("bytes")) &&
-      (rowClippingApplied || !reasons.has("rows")) &&
-      (columnClippingApplied || !reasons.has("columns")) &&
-      (clippingApplied || !reasons.has("bytes"));
+      if (
+        (view.resultKind === "query-rows" ||
+          view.resultKind === "async-query-rows") &&
+        view.rows.some((row) =>
+          Object.values(row).some(
+            (value) => value !== null && typeof value !== "string",
+          ),
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Scientific row values must be strings or null.",
+          path: ["rows"],
+        });
+      }
 
-    if (
-      view.clipping.sourceRows < view.rows.length ||
-      view.clipping.sourceColumns < view.columns.length ||
-      reasons.size !== view.clipping.reasons.length ||
-      !reasonsMatchClipping
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view clipping metadata is inconsistent.",
-        path: ["clipping"],
-      });
-    }
+      if (view.rows.length * view.columns.length > limits.maxCells) {
+        context.addIssue({
+          code: "custom",
+          message: "Table view exceeds the cell ceiling.",
+          path: ["rows"],
+        });
+      }
 
-    if (
-      (view.resultKind === "query-rows" ||
-        view.resultKind === "async-query-rows") &&
-      view.rows.some((row) =>
-        Object.values(row).some(
-          (value) => value !== null && typeof value !== "string",
-        ),
-      )
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Scientific row values must be strings or null.",
-        path: ["rows"],
-      });
-    }
+      if (containsOverlongString(view, limits.maxStringBytes)) {
+        context.addIssue({
+          code: "custom",
+          message: "Table view contains an overlong string.",
+        });
+      }
 
-    if (
-      view.rows.length * view.columns.length >
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxCells
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view exceeds the cell ceiling.",
-        path: ["rows"],
-      });
-    }
+      if (serializedByteLength(view) > limits.maxSerializedBytes) {
+        context.addIssue({
+          code: "custom",
+          message: "Table view exceeds the serialized byte ceiling.",
+        });
+      }
+    });
+}
 
-    if (containsOverlongString(view)) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view contains an overlong string.",
-      });
-    }
+export const starfetchTableViewV1Schema = createTableViewSchema(
+  STARFETCH_TABLE_VIEW_LIMITS_V1,
+);
 
-    if (
-      serializedByteLength(view) >
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxSerializedBytes
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Table view exceeds the serialized byte ceiling.",
-      });
-    }
-  });
+const starfetchWidgetTableViewV1Schema = createTableViewSchema(
+  STARFETCH_WIDGET_TABLE_LIMITS_V1,
+);
+
+export const starfetchWidgetTableDatasetV1Schema = z.object({
+  datasetVersion: z.literal(1),
+  view: starfetchWidgetTableViewV1Schema,
+});
 
 export type StarfetchTableViewV1 = z.infer<typeof starfetchTableViewV1Schema>;
+export type StarfetchWidgetTableDatasetV1 = z.infer<
+  typeof starfetchWidgetTableDatasetV1Schema
+>;
+export type StarfetchWidgetTableViewV1 = StarfetchWidgetTableDatasetV1["view"];
 
 export type StarfetchTableViewDraft = Pick<
   StarfetchTableViewV1,
@@ -247,21 +271,23 @@ export function serializedByteLength(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
 
-export function containsOverlongString(value: unknown): boolean {
+export function containsOverlongString(
+  value: unknown,
+  maxStringBytes: number = STARFETCH_TABLE_VIEW_LIMITS_V1.maxStringBytes,
+): boolean {
   if (typeof value === "string") {
-    return (
-      new TextEncoder().encode(value).byteLength >
-      STARFETCH_TABLE_VIEW_LIMITS_V1.maxStringBytes
-    );
+    return new TextEncoder().encode(value).byteLength > maxStringBytes;
   }
 
   if (Array.isArray(value)) {
-    return value.some(containsOverlongString);
+    return value.some((item) => containsOverlongString(item, maxStringBytes));
   }
 
   return (
     typeof value === "object" &&
     value !== null &&
-    Object.values(value).some(containsOverlongString)
+    Object.values(value).some((item) =>
+      containsOverlongString(item, maxStringBytes),
+    )
   );
 }

@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createHostedStarfetchMcpServer } from "./hosted-server.js";
 import { createHostedStarfetchMcpPolicy } from "./hosted-policy.js";
@@ -25,6 +25,12 @@ const expectedHostedToolAnnotations = {
     idempotentHint: true,
     openWorldHint: false,
     readOnlyHint: true,
+  },
+  starfetch_query_table: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
   },
   starfetch_tap_availability: {
     destructiveHint: false,
@@ -91,10 +97,18 @@ const expectedHostedToolAnnotations = {
 describe("hosted Starfetch MCP server", () => {
   it("adds the portable table renderer and immutable widget resource", async () => {
     const widgetHtml = "<!doctype html><title>Starfetch results</title>";
+    const tapFetch = vi.fn(async () =>
+      Promise.resolve(
+        new Response(createVotable(125), {
+          headers: { "content-type": "application/x-votable+xml" },
+        }),
+      ),
+    );
     const server = createHostedStarfetchMcpServer({
       loadWidgetHtml: async () => widgetHtml,
       publicOrigin: "https://starfetch-production.run.app",
       mcp: {
+        fetch: tapFetch,
         policy: createHostedStarfetchMcpPolicy({
           jobCapabilities: createJobCapabilityIssuer({
             secret: new Uint8Array(32).fill(4),
@@ -114,7 +128,7 @@ describe("hosted Starfetch MCP server", () => {
       await client.connect(clientTransport);
 
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(13);
+      expect(tools.tools).toHaveLength(14);
       expect(
         Object.fromEntries(
           tools.tools.map((tool) => [tool.name, tool.annotations]),
@@ -133,6 +147,16 @@ describe("hosted Starfetch MCP server", () => {
       expect(tools.tools).toContainEqual(
         expect.objectContaining({
           name: "starfetch_render_table",
+          _meta: expect.objectContaining({
+            ui: expect.objectContaining({
+              resourceUri: "ui://starfetch/table/v1",
+            }),
+          }),
+        }),
+      );
+      expect(tools.tools).toContainEqual(
+        expect.objectContaining({
+          name: "starfetch_query_table",
           _meta: expect.objectContaining({
             ui: expect.objectContaining({
               resourceUri: "ui://starfetch/table/v1",
@@ -167,6 +191,30 @@ describe("hosted Starfetch MCP server", () => {
         ],
         structuredContent: view,
       });
+
+      const queryResult = await client.callTool({
+        name: "starfetch_query_table",
+        arguments: {
+          query: "SELECT TOP 125 source_id FROM mock_source",
+          url: "https://example.test/tap",
+        },
+      });
+      expect(queryResult.isError).toBeUndefined();
+      expect(queryResult.structuredContent).toMatchObject({
+        clipping: { reasons: ["rows"], sourceRows: 125 },
+        rows: expect.arrayContaining([{ source_id: "1" }]),
+        source: { effectiveMaxrec: 1_000 },
+      });
+      expect(
+        (queryResult.structuredContent as { rows: unknown[] }).rows,
+      ).toHaveLength(20);
+      expect(
+        (
+          queryResult._meta?.starfetchTableDataset as {
+            view: { rows: unknown[] };
+          }
+        ).view.rows,
+      ).toHaveLength(125);
 
       const resources = await client.listResources();
       expect(resources.resources).toContainEqual(
@@ -209,3 +257,20 @@ describe("hosted Starfetch MCP server", () => {
     }
   });
 });
+
+function createVotable(rowCount: number): string {
+  const rows = Array.from(
+    { length: rowCount },
+    (_, index) => `<TR><TD>${index + 1}</TD></TR>`,
+  ).join("");
+  return `<?xml version="1.0"?>
+<VOTABLE version="1.4">
+  <RESOURCE type="results">
+    <INFO name="QUERY_STATUS" value="OK">Successful query</INFO>
+    <TABLE>
+      <FIELD name="source_id" datatype="long" />
+      <DATA><TABLEDATA>${rows}</TABLEDATA></DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>`;
+}
