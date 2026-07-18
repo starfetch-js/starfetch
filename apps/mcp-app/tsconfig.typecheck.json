@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../.."
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../packages/core/src/**/*.ts",
+    "../../packages/mcp/src/**/*.ts",
+    "../../packages/skill/src/**/*.ts"
+  ]
+}

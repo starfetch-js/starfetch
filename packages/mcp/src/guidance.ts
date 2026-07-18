@@ -1,50 +1,91 @@
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   readStarfetchSkillFile,
+  starfetchSkillPaths,
   type StarfetchSkillPath,
 } from "@starfetch-js/skill";
 import { z } from "zod/v4";
 
-type GuidanceAsset = {
+type GuidanceResourceMetadata = {
   description: string;
-  path: StarfetchSkillPath;
   title: string;
   uri: `starfetch://${string}`;
 };
 
-const guidanceResources: GuidanceAsset[] = [
-  {
+const guidanceResourceMetadata = {
+  "SKILL.md": {
+    description:
+      "Complete metadata-first Starfetch workflow, fallback, safety, and reporting guidance.",
+    title: "Starfetch workflow guide",
+    uri: "starfetch://guides/workflow",
+  },
+  "references/adql.md": {
     description: "Metadata-backed ADQL syntax and failure recovery guidance.",
-    path: "references/adql.md",
     title: "Starfetch ADQL guide",
     uri: "starfetch://guides/adql",
   },
-  {
+  "references/tap-metadata.md": {
     description:
       "Workflow for inspecting TAP availability, capabilities, tables, and columns.",
-    path: "references/tap-metadata.md",
     title: "Starfetch TAP metadata guide",
     uri: "starfetch://guides/tap-metadata",
   },
-  {
+  "references/query-safety.md": {
+    description:
+      "Bounds, untrusted-content handling, and reproducible reporting for public TAP queries.",
+    title: "Starfetch query safety guide",
+    uri: "starfetch://guides/query-safety",
+  },
+  "references/services/gaia.md": {
     description: "Gaia-specific query guidance and interpretation limits.",
-    path: "references/services/gaia.md",
     title: "Starfetch Gaia service guide",
     uri: "starfetch://services/gaia",
   },
-  {
+  "references/services/simbad.md": {
     description: "SIMBAD-specific query guidance and interpretation limits.",
-    path: "references/services/simbad.md",
     title: "Starfetch SIMBAD service guide",
     uri: "starfetch://services/simbad",
   },
-  {
+  "references/services/vizier.md": {
+    description:
+      "VizieR catalog discovery, schema inspection, and bounded-query guidance.",
+    title: "Starfetch VizieR service guide",
+    uri: "starfetch://services/vizier",
+  },
+  "references/services/exoplanet-archive.md": {
+    description:
+      "NASA Exoplanet Archive table-selection and scientific-interpretation guidance.",
+    title: "Starfetch NASA Exoplanet Archive service guide",
+    uri: "starfetch://services/exoplanet-archive",
+  },
+  "references/services/irsa.md": {
+    description:
+      "IRSA catalog selection, metadata, and bounded-query guidance.",
+    title: "Starfetch IRSA service guide",
+    uri: "starfetch://services/irsa",
+  },
+  "examples/cone-search.md": {
+    description:
+      "Metadata-first bounded cone-search workflow using discovered coordinate columns.",
+    title: "Starfetch cone-search example",
+    uri: "starfetch://examples/cone-search",
+  },
+  "examples/proper-motion.md": {
     description: "Complete metadata-first Gaia proper-motion workflow.",
-    path: "examples/proper-motion.md",
     title: "Starfetch proper-motion example",
     uri: "starfetch://examples/proper-motion",
   },
-];
+  "examples/exoplanets.md": {
+    description: "Metadata-first short-period exoplanet query workflow.",
+    title: "Starfetch exoplanet example",
+    uri: "starfetch://examples/exoplanets",
+  },
+  "examples/object-types.md": {
+    description: "Metadata-first SIMBAD regional object-type query workflow.",
+    title: "Starfetch SIMBAD object-types example",
+    uri: "starfetch://examples/object-types",
+  },
+} satisfies Record<StarfetchSkillPath, GuidanceResourceMetadata>;
 
 export function registerStarfetchGuidance(server: McpServer): void {
   registerResources(server);
@@ -52,7 +93,8 @@ export function registerStarfetchGuidance(server: McpServer): void {
 }
 
 function registerResources(server: McpServer): void {
-  for (const resource of guidanceResources) {
+  for (const path of starfetchSkillPaths) {
+    const resource = guidanceResourceMetadata[path];
     server.registerResource(
       resource.title,
       resource.uri,
@@ -65,7 +107,7 @@ function registerResources(server: McpServer): void {
         contents: [
           {
             mimeType: "text/markdown",
-            text: await readStarfetchSkillFile(resource.path),
+            text: await readStarfetchSkillFile(path),
             uri: resource.uri,
           },
         ],

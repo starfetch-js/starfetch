@@ -17,10 +17,14 @@
     "baseUrl": ".",
     "paths": {
       "@starfetch-js/core": ["packages/core/src/index.ts"],
+      "@starfetch-js/mcp": ["packages/mcp/src/index.ts"],
       "@starfetch-js/skill": ["packages/skill/src/index.ts"]
     }
   },
   "include": [
+    "apps/*/*.ts",
+    "apps/*/src/**/*.ts",
+    "apps/*/test/**/*.ts",
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
     "eslint.config.js",

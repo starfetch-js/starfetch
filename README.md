@@ -77,12 +77,17 @@ agent workflow is convenient without becoming a scientific black box.
 
 ## Connect an agent
 
+The local npm server is Starfetch's stable public connection path. It runs on
+your computer and can be registered with any compatible MCP client.
+
+### Local npm server
+
 Register Starfetch with the agent client that will launch it. Running the MCP
 package by itself only starts a stdio server; it does not connect that server to
 an agent. Starfetch is also discoverable through the
 [official MCP Registry](https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch).
 
-### Codex
+#### Codex
 
 Register Starfetch for the Codex CLI, IDE extension, and ChatGPT desktop app:
 
@@ -94,7 +99,7 @@ codex mcp list
 These Codex surfaces share MCP configuration. See the
 [official Codex MCP documentation](https://developers.openai.com/codex/mcp).
 
-### Claude Code
+#### Claude Code
 
 Register Starfetch in user scope:
 
@@ -106,7 +111,7 @@ claude mcp get starfetch
 See the
 [official Claude Code MCP documentation](https://docs.anthropic.com/en/docs/claude-code/mcp).
 
-### Cursor
+#### Cursor
 
 Add this server entry to `~/.cursor/mcp.json` for global use or
 `.cursor/mcp.json` for one project:
@@ -136,6 +141,21 @@ args: -y @starfetch-js/mcp
 Restart or reload the client after registration, then ask a normal astronomy
 question. You should not need to write ADQL or name Starfetch tools in the
 prompt. Starfetch requires Node.js 22 or newer.
+
+### Remote MCP
+
+A remote MCP service runs on the internet and accepts MCP connections over
+HTTPS. No Starfetch package has to be installed or launched on the user's
+computer. Starfetch is preparing this access mode for compatible clients and
+interfaces that need its tools or table widget without managing npm locally.
+A stable public endpoint is not available yet. Production connection and
+client-compatibility instructions will be added here after that endpoint is
+ready.
+
+See the remote service's [overview](apps/mcp-app/README.md),
+[privacy notice](apps/mcp-app/PRIVACY.md),
+[support](apps/mcp-app/SUPPORT.md), and
+[terms of use](apps/mcp-app/TERMS.md).
 
 ## What the agent does
 
@@ -177,6 +197,13 @@ Query tools return result data separately from diagnostics. They preserve the
 exact submitted ADQL and effective row limit for reproduction and review.
 Synchronous queries and async submissions send TAP `MAXREC=100` when `maxrec`
 is omitted.
+
+The remote HTTP service returns an opaque `jobCapability` with each async
+submission. Supply that value unchanged to every remote status, wait, fetch,
+or delete call. The capability remains usable while the remote job exists and
+the service signing secret is unchanged. Remote deletion is marked destructive
+so MCP clients can obtain user approval. The stdio MCP server and CLI keep
+their existing job-reference behavior and do not advertise remote-only fields.
 
 ## Why Starfetch?
 
@@ -364,6 +391,8 @@ const result = await client.query(
 );
 
 console.log(columns.length);
+console.log(await result.fields());
+console.log(await result.overflow());
 console.log(await result.json());
 
 const services = await registry().searchTapServices({
@@ -425,6 +454,149 @@ Install dependencies with the committed lockfile:
 npm ci
 ```
 
+Run the private Streamable HTTP development app with:
+
+```sh
+npm run dev:http
+```
+
+It serves MCP at `http://127.0.0.1:3000/mcp` and process health at
+`http://127.0.0.1:3000/health`. Each MCP request gets a fresh stateless
+`@starfetch-js/mcp` server. The HTTP surface keeps the 12 canonical
+Starfetch tools unchanged and adds `starfetch_render_table`, which presents an
+existing bounded `StarfetchTableViewV1` through the immutable
+`ui://starfetch/table/v1` MCP Apps resource. The renderer never submits TAP
+requests; ordinary MCP clients can continue using the canonical text and
+structured results without loading the widget. Configuration is
+environment-only:
+
+- `HOST` defaults to `127.0.0.1`; set `0.0.0.0` explicitly for all interfaces.
+- `PORT` defaults to `3000`.
+- `ALLOWED_ORIGINS` is a comma-separated list of exact browser origins and
+  defaults to none.
+- `SHUTDOWN_GRACE_MS` defaults to `10000` and accepts `1` through `60000`.
+- `STARFETCH_JOB_CAPABILITY_SECRET` is a base64url secret of at least 32 bytes.
+  It is required when `HOST` is not loopback; loopback development uses an
+  ephemeral per-process secret when omitted.
+
+The anonymous HTTP policy is a fixed, tested product profile rather than a
+set of independently tunable environment variables. It caps MCP requests at 2
+MiB, TAP responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 100, redirects
+at 3, outbound requests at 4 concurrent operations, and tools at 60 seconds.
+Job waits default to 30 seconds, cap at 45 seconds, and poll between 1 and 10
+seconds. The process admits 100 MCP requests per minute globally; deployments
+that need per-client limits should enforce them at a trusted HTTPS ingress.
+
+The HTTP host accepts only credential-free HTTPS TAP targets whose complete
+DNS result is public, pins validated addresses for each request hop, keeps
+redirects same-origin, never automatically follows write redirects, and
+rejects remote-URI TAP uploads. These restrictions apply to the anonymous HTTP
+app, not the local stdio MCP, CLI, or TypeScript API.
+
+To verify the protocol surface without opening the widget, start the app and
+run MCP Inspector's CLI in another shell:
+
+```sh
+npx -y @modelcontextprotocol/inspector@latest --cli http://127.0.0.1:3000/mcp --transport http --method tools/list
+npx -y @modelcontextprotocol/inspector@latest --cli http://127.0.0.1:3000/mcp --transport http --method tools/call --tool-name starfetch_list_presets
+```
+
+To render the widget in MCP Inspector's Apps tab:
+
+1. Keep `npm run dev:http` running, then start the Inspector UI without a stdio
+   server command:
+
+   ```sh
+   npx -y @modelcontextprotocol/inspector@latest
+   ```
+
+2. In Inspector, select **Via Proxy**, choose **Streamable HTTP**, enter
+   `http://127.0.0.1:3000/mcp`, leave authentication empty, and connect.
+3. Open **Apps**, select **Refresh Apps**, and choose
+   `starfetch_render_table`. The Apps tab lists UI-linked tools rather than the
+   server name.
+4. Paste a valid bounded table view into **App Input** and select **Open App**.
+   This minimal preset view exercises the widget without making a live TAP
+   request:
+
+   ```json
+   {
+     "contractVersion": 1,
+     "resultKind": "presets",
+     "title": "TAP service presets",
+     "columns": [
+       { "key": "name", "label": "Name" },
+       { "key": "url", "label": "TAP URL" }
+     ],
+     "rows": [
+       {
+         "name": "gaia",
+         "url": "https://gea.esac.esa.int/tap-server/tap"
+       }
+     ],
+     "source": { "tool": "starfetch_list_presets" },
+     "state": "populated",
+     "clipping": {
+       "reasons": [],
+       "sourceRows": 1,
+       "sourceColumns": 2
+     }
+   }
+   ```
+
+The Apps tab requires the Streamable HTTP endpoint; the canonical stdio
+server exposes the core Starfetch tools without UI resources. Inspector's
+**Via Proxy** mode works with the default origin policy. To use **Direct** mode,
+allow Inspector's browser origins explicitly when starting the app:
+
+```sh
+ALLOWED_ORIGINS=http://localhost:6274,http://127.0.0.1:6274 npm run dev:http
+```
+
+The widget is a portable MCP Apps client. It uses the standard host bridge for
+tool results, theme variables, display-mode requests, clipboard access, and file
+downloads, so the table has no direct dependency on a ChatGPT- or Claude-only
+browser global. Its React UI uses semantic table markup, TanStack Table sorting,
+TanStack Virtual row rendering for larger results, and fine-grained Shiki SQL
+highlighting for exact ADQL. Inline mode exposes the complete bounded result
+through a capped two-axis scroll viewport. A labeled `Show more` or `Show less`
+control below the table requests the corresponding host display mode. The
+resource declares no network or static-resource domains and requests only
+clipboard-write permission.
+
+Run its unit, single-file build, and browser-host acceptance checks with:
+
+```sh
+npm --workspace @starfetch-js/mcp-app run check
+npm --workspace @starfetch-js/mcp-app run test:browser
+```
+
+Build and smoke-test the production Linux container with Docker:
+
+```sh
+npm run smoke:container
+```
+
+The image workflow publishes immutable containers to
+`ghcr.io/starfetch-js/starfetch-mcp-app`.
+
+For ChatGPT Developer Mode or another remote MCP Apps host, expose the local MCP
+endpoint through HTTPS, add the resulting `/mcp` URL to the host, call a
+canonical Starfetch tool, then pass its bounded table view to
+`starfetch_render_table`. Verify light and dark themes, `Show more` and `Show
+less`, horizontal scrolling, sorting, highlighted ADQL and copying, and TSV,
+CSV, and JSON copy and download actions. Host-specific visual differences
+should be handled through the bridge theme variables rather than a second
+component implementation.
+
+For a temporary remote URL, the development machine can run:
+
+```sh
+cloudflared tunnel --url http://127.0.0.1:3000 --http-host-header 127.0.0.1:3000
+```
+
+The HTTP app has no authentication. It applies a coarse, per-process fixed window limit of 100 MCP requests per minute, not per-client abuse protection. A quick tunnel is public and temporary: use only non-sensitive test traffic and stop it immediately after testing. This development app is not production deployment infrastructure.
+
 The workspace requires Node.js `>=22.13.0`. Run:
 
 ```sh
@@ -444,6 +616,8 @@ npm --workspace packages/mcp run typecheck
 npm --workspace packages/mcp run test
 npm --workspace packages/mcp run build
 npm --workspace packages/mcp run smoke
+
+npm --workspace @starfetch-js/mcp-app run check
 
 npm --workspace packages/skill run typecheck
 npm --workspace packages/skill run test

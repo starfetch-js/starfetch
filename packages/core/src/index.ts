@@ -59,7 +59,7 @@ export type {
   TapSyncFormat,
 } from "./tap-format.js";
 export type { TapPreset, TapPresetRegistry } from "./tap-presets.js";
-export type { TapResult } from "./tap-result-output.js";
+export type { TapResult, TapResultField } from "./tap-result-output.js";
 export type { TapCellValue, TapRow } from "./tap-row.js";
 export type {
   TapJob,

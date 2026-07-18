@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
     "build": "npm run build --workspaces",
+    "dev:http": "npm --workspace @starfetch-js/mcp-app run dev",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
@@ -19,7 +21,8 @@
     "release:version": "lerna version",
     "release:publish": "lerna publish from-git --yes",
     "test:live:tap": "node scripts/run-live-tap-tests.mjs",
-    "smoke:cli": "node packages/cli/dist/index.js --help"
+    "smoke:cli": "node packages/cli/dist/index.js --help",
+    "smoke:container": "node scripts/smoke-mcp-app-container.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",

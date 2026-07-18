@@ -39,13 +39,13 @@ export type TapJob = {
   /** Absolute UWS job URL. */
   url: string;
   /** Read the current UWS job phase and result/error links. */
-  status(): Promise<TapJobStatus>;
+  status(options?: Pick<QueryOptions, "signal">): Promise<TapJobStatus>;
   /** Poll until the job completes or a wait condition fails. */
   wait(options?: TapJobWaitOptions): Promise<TapJobStatus>;
   /** Fetch the primary TAP result from the completed job. */
   fetch(options?: TapJobFetchOptions): Promise<TapResult>;
   /** Request job cleanup through the UWS job URL. */
-  delete(): Promise<void>;
+  delete(options?: Pick<QueryOptions, "signal">): Promise<void>;
 };
 
 /** Async TAP job operations bound to a TAP client target. */
@@ -215,8 +215,8 @@ export function createTapJob(
   return {
     id,
     url: jobUrl.href,
-    async status() {
-      return readStatus(options.signal);
+    async status(statusOptions = {}) {
+      return readStatus(statusOptions.signal ?? options.signal);
     },
     async wait(waitOptions: TapJobWaitOptions = {}) {
       return waitForTapJob(readStatus, waitOptions);
@@ -238,11 +238,14 @@ export function createTapJob(
 
       return createTapResultFromResponse(format, response);
     },
-    async delete() {
+    async delete(deleteOptions = {}) {
       await tapDeleteUrl(jobUrl.href, {
         ...createJobHttpOptions(options),
         acceptedStatuses: [303],
         redirect: "manual",
+        ...(deleteOptions.signal === undefined
+          ? {}
+          : { signal: deleteOptions.signal }),
       });
     },
   };

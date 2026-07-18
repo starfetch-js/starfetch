@@ -1,0 +1,89 @@
+name: MCP App Image
+
+on:
+  push:
+    branches:
+      - main
+      - project/starfetch-mcp-app
+  workflow_dispatch:
+
+permissions:
+  artifact-metadata: write
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/starfetch-mcp-app
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+          cache: npm
+      - run: npm ci
+      - run: npm --workspace @starfetch-js/mcp-app run check
+      - uses: docker/setup-buildx-action@v3
+      - run: npm run smoke:container
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/mcp-app/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ github.ref == 'refs/heads/project/starfetch-mcp-app' && format('{0}:staging-candidate', env.IMAGE_NAME) || '' }}
+          cache-from: type=gha,scope=starfetch-mcp-app
+          cache-to: type=gha,mode=max,scope=starfetch-mcp-app
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+      - name: Attest image provenance
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Write immutable artifact manifest
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          jq --null-input \
+            --arg image "$IMAGE_NAME" \
+            --arg digest "$IMAGE_DIGEST" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg sourceRef "$GITHUB_REF" \
+            --arg sourceSha "$GITHUB_SHA" \
+            --arg workflowRun "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{
+              architecture: "linux/amd64",
+              digest: $digest,
+              healthRoute: "/health",
+              image: $image,
+              mcpRoute: "/mcp",
+              node: "22.22.0",
+              port: 8080,
+              repository: $repository,
+              sourceRef: $sourceRef,
+              sourceSha: $sourceSha,
+              workflowRun: $workflowRun
+            }' > starfetch-mcp-app-artifact.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: starfetch-mcp-app-artifact-${{ github.sha }}
+          path: starfetch-mcp-app-artifact.json
+          if-no-files-found: error

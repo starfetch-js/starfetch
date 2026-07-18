@@ -2,6 +2,7 @@ import {
   parseTapJobReference,
   tapOutputFormats,
   tapSyncFormats,
+  type TapResultField,
 } from "@starfetch-js/core";
 import { z } from "zod/v4";
 
@@ -105,6 +106,13 @@ const tapJobTargetFields = {
   jobIdOrUrl: textSchema.describe("TAP async job id or absolute job URL."),
 };
 
+const hostedTapJobTargetFields = {
+  ...tapJobTargetFields,
+  jobCapability: optionalTextSchema.describe(
+    "Opaque capability returned by hosted Starfetch when this job was submitted.",
+  ),
+};
+
 export const tapJobSubmitInputSchema = z
   .object({
     ...targetFields,
@@ -154,7 +162,12 @@ export const tapJobInputSchema = z
   });
 export type TapJobInput = z.infer<typeof tapJobInputSchema>;
 
-export const tapJobWaitInputSchema = tapJobInputSchema.extend({
+export const hostedTapJobInputSchema = tapJobInputSchema.extend({
+  jobCapability: hostedTapJobTargetFields.jobCapability,
+});
+export type HostedTapJobInput = z.infer<typeof hostedTapJobInputSchema>;
+
+const tapJobWaitFields = {
   backoff: z.boolean().optional().describe("Increase the poll interval."),
   intervalMs: waitMsSchema
     .optional()
@@ -163,17 +176,28 @@ export const tapJobWaitInputSchema = tapJobInputSchema.extend({
     .optional()
     .describe("Maximum backoff interval in milliseconds."),
   timeoutMs: waitMsSchema.optional().describe("Wait timeout in milliseconds."),
-});
+};
+
+export const tapJobWaitInputSchema = tapJobInputSchema.extend(tapJobWaitFields);
 export type TapJobWaitInput = z.infer<typeof tapJobWaitInputSchema>;
 
-export const tapJobFetchInputSchema = tapJobInputSchema.extend({
+export const hostedTapJobWaitInputSchema =
+  hostedTapJobInputSchema.extend(tapJobWaitFields);
+
+const tapJobFetchFields = {
   format: z.enum(tapOutputFormats).describe("MCP result output format."),
   sourceFormat: z
     .enum(tapSyncFormats)
     .optional()
     .describe("Actual TAP result format for async job output."),
-});
+};
+
+export const tapJobFetchInputSchema =
+  tapJobInputSchema.extend(tapJobFetchFields);
 export type TapJobFetchInput = z.infer<typeof tapJobFetchInputSchema>;
+
+export const hostedTapJobFetchInputSchema =
+  hostedTapJobInputSchema.extend(tapJobFetchFields);
 
 function hasTapTarget(input: {
   service?: string | undefined;
@@ -240,12 +264,36 @@ export const tableDiagnosticsSchema = targetDiagnosticsSchema.extend({
   table: z.string(),
 });
 
-export const tapQueryDataSchema = z.object({
-  content: z.string(),
-  format: z.enum(tapOutputFormats),
-});
+type TapResultFieldShape = {
+  [Key in keyof TapResultField]-?: z.ZodType<TapResultField[Key]>;
+};
+
+const tapResultFieldShape = {
+  name: z.string(),
+  datatype: z.string().optional(),
+  unit: z.string().optional(),
+  ucd: z.string().optional(),
+  utype: z.string().optional(),
+  description: z.string().optional(),
+} satisfies TapResultFieldShape;
+
+export const tapResultFieldSchema = z.object(tapResultFieldShape);
+
+export const tapQueryDataSchema = z.discriminatedUnion("format", [
+  z.object({
+    content: z.string(),
+    fields: z.array(tapResultFieldSchema),
+    format: z.enum(["json", "jsonl"]),
+    overflow: z.boolean().optional(),
+  }),
+  z.object({
+    content: z.string(),
+    format: z.enum(["csv", "tsv", "votable"]),
+  }),
+]);
 
 export const tapQueryDiagnosticsSchema = targetDiagnosticsSchema.extend({
+  durationMs: z.number().nonnegative(),
   effectiveMaxrec: z.number().int().nonnegative(),
   format: z.enum(tapOutputFormats),
   requestFormat: z.enum(tapSyncFormats),
@@ -257,6 +305,10 @@ export const tapQueryDiagnosticsSchema = targetDiagnosticsSchema.extend({
 export const tapJobDataSchema = z.object({
   id: z.string(),
   url: z.string(),
+});
+
+export const hostedTapJobSubmitDataSchema = tapJobDataSchema.extend({
+  jobCapability: z.string(),
 });
 
 export const tapJobStatusSchema = z.object({
@@ -284,7 +336,61 @@ export const tapJobWaitDiagnosticsSchema = tapJobDiagnosticsSchema.extend({
 });
 
 export const tapJobFetchDiagnosticsSchema = tapJobDiagnosticsSchema.extend({
+  durationMs: z.number().nonnegative(),
   format: z.enum(tapOutputFormats),
   requestFormat: z.enum(tapSyncFormats),
   sourceFormat: z.enum(tapSyncFormats),
 });
+
+export const presetListOutputSchema = z.object({
+  data: z.array(presetSchema),
+  diagnostics: countDiagnosticsSchema,
+});
+
+export const registrySearchOutputSchema = z.object({
+  data: z.array(registryServiceSchema),
+  diagnostics: z.object({
+    count: z.number().int().nonnegative(),
+    registryUrl: z.string(),
+  }),
+});
+
+export const tablesOutputSchema = z.object({
+  data: z.array(tableSchema),
+  diagnostics: targetDiagnosticsSchema.extend({
+    count: z.number().int().nonnegative(),
+  }),
+});
+
+export const columnsOutputSchema = z.object({
+  data: z.array(columnSchema),
+  diagnostics: tableDiagnosticsSchema,
+});
+
+export const tapQueryOutputSchema = z
+  .object({
+    data: tapQueryDataSchema,
+    diagnostics: tapQueryDiagnosticsSchema,
+  })
+  .superRefine((output, context) => {
+    if (output.data.format !== output.diagnostics.format) {
+      context.addIssue({
+        code: "custom",
+        message: "Query data and diagnostics formats must match.",
+      });
+    }
+  });
+
+export const tapJobFetchOutputSchema = z
+  .object({
+    data: tapQueryDataSchema,
+    diagnostics: tapJobFetchDiagnosticsSchema,
+  })
+  .superRefine((output, context) => {
+    if (output.data.format !== output.diagnostics.format) {
+      context.addIssue({
+        code: "custom",
+        message: "Fetched data and diagnostics formats must match.",
+      });
+    }
+  });

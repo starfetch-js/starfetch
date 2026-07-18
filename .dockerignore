@@ -1,0 +1,9 @@
+.git
+.github
+.tmp
+**/dist
+**/node_modules
+**/test-results
+coverage
+node_modules
+npm-debug.log*

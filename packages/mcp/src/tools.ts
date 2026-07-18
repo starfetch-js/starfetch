@@ -2,7 +2,6 @@ import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   defaultRegistryUrl,
   defaultTapPresets,
-  formatTapResult,
   registry,
   tapRequestFormatForOutput,
   type QueryOptions,
@@ -17,23 +16,21 @@ import { registerJobTools } from "./job-tools.js";
 import {
   availabilitySchema,
   capabilitiesSchema,
-  columnSchema,
+  columnsOutputSchema,
   columnsInputSchema,
-  countDiagnosticsSchema,
-  presetSchema,
+  presetListOutputSchema,
   registrySearchInputSchema,
-  registryServiceSchema,
-  tableDiagnosticsSchema,
-  tableSchema,
+  registrySearchOutputSchema,
+  tablesOutputSchema,
   targetDiagnosticsSchema,
   targetInputSchema,
-  tapQueryDataSchema,
-  tapQueryDiagnosticsSchema,
   tapQueryInputSchema,
+  tapQueryOutputSchema,
   type TapQueryInput,
 } from "./schemas.js";
 import { runTool, success, targetDiagnostics } from "./results.js";
-import type { StarfetchMcpServerOptions } from "./server.js";
+import { createTapQueryData } from "./query-result.js";
+import type { StarfetchMcpRuntimeOptions } from "./server.js";
 import { createTapClient, createTapUploads } from "./tap-client.js";
 import {
   readOnlyLocalAnnotations,
@@ -44,7 +41,7 @@ const defaultTapQueryMaxrec = 100;
 
 export function registerStarfetchTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   registerPresetTools(server);
   registerRegistryTools(server, options);
@@ -60,10 +57,7 @@ function registerPresetTools(server: McpServer): void {
       annotations: readOnlyLocalAnnotations,
       description:
         "List built-in TAP service presets before selecting an explicit target for metadata inspection.",
-      outputSchema: z.object({
-        data: z.array(presetSchema),
-        diagnostics: countDiagnosticsSchema,
-      }),
+      outputSchema: presetListOutputSchema,
       title: "List TAP presets",
     },
     () =>
@@ -78,7 +72,7 @@ function registerPresetTools(server: McpServer): void {
 
 function registerRegistryTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   server.registerTool(
     "starfetch_registry_search",
@@ -87,16 +81,10 @@ function registerRegistryTools(
       description:
         "Search VO registry metadata when no built-in preset fits; inspect the selected service before querying it.",
       inputSchema: registrySearchInputSchema,
-      outputSchema: z.object({
-        data: z.array(registryServiceSchema),
-        diagnostics: z.object({
-          count: z.number().int().nonnegative(),
-          registryUrl: z.string(),
-        }),
-      }),
+      outputSchema: registrySearchOutputSchema,
       title: "Search TAP registry",
     },
-    async ({ query, maxrec, registryUrl }) =>
+    async ({ query, maxrec, registryUrl }, extra) =>
       runTool(async () => {
         const registryOptions: TapRegistryOptions = {};
 
@@ -114,9 +102,15 @@ function registerRegistryTools(
           searchOptions.query = query;
         }
 
-        if (maxrec !== undefined) {
-          searchOptions.maxrec = maxrec;
+        const prepared = options.policy.prepareRegistry({
+          fallbackMaxrec: defaultTapQueryMaxrec,
+          incomingSignal: extra.signal,
+          requestedMaxrec: maxrec,
+        });
+        if (prepared.maxrec !== undefined) {
+          searchOptions.maxrec = prepared.maxrec;
         }
+        searchOptions.signal = prepared.signal;
 
         const data =
           await registry(registryOptions).searchTapServices(searchOptions);
@@ -131,7 +125,7 @@ function registerRegistryTools(
 
 function registerMetadataTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   server.registerTool(
     "starfetch_tap_availability",
@@ -146,10 +140,12 @@ function registerMetadataTools(
       }),
       title: "Read TAP availability",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.availability();
+        const data = await client.availability({
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           target: targetDiagnostics(client.target),
@@ -170,10 +166,12 @@ function registerMetadataTools(
       }),
       title: "Read TAP capabilities",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.capabilities();
+        const data = await client.capabilities({
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           target: targetDiagnostics(client.target),
@@ -188,18 +186,15 @@ function registerMetadataTools(
       description:
         "List tables on the selected TAP service before choosing an exact table for ADQL.",
       inputSchema: targetInputSchema,
-      outputSchema: z.object({
-        data: z.array(tableSchema),
-        diagnostics: targetDiagnosticsSchema.extend({
-          count: z.number().int().nonnegative(),
-        }),
-      }),
+      outputSchema: tablesOutputSchema,
       title: "List TAP tables",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.tables();
+        const data = await client.tables({
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           count: data.length,
@@ -215,16 +210,15 @@ function registerMetadataTools(
       description:
         "Inspect names, datatypes, units, and descriptions for an exact metadata-discovered table before constructing ADQL.",
       inputSchema: columnsInputSchema,
-      outputSchema: z.object({
-        data: z.array(columnSchema),
-        diagnostics: tableDiagnosticsSchema,
-      }),
+      outputSchema: columnsOutputSchema,
       title: "List TAP columns",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const data = await client.columns(input.table);
+        const data = await client.columns(input.table, {
+          signal: options.policy.signal(extra.signal),
+        });
 
         return success(data, {
           count: data.length,
@@ -237,34 +231,44 @@ function registerMetadataTools(
 
 function registerQueryTools(
   server: McpServer,
-  options: StarfetchMcpServerOptions,
+  options: StarfetchMcpRuntimeOptions,
 ): void {
   server.registerTool(
     "starfetch_tap_query",
     {
-      annotations: readOnlyNetworkAnnotations,
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+        readOnlyHint: false,
+      },
       description:
         "Run a small bounded synchronous TAP ADQL query after inspecting the exact table and columns. Use TOP in ADQL and/or maxrec, and treat tool errors as failures rather than empty scientific results.",
       inputSchema: tapQueryInputSchema,
-      outputSchema: z.object({
-        data: tapQueryDataSchema,
-        diagnostics: tapQueryDiagnosticsSchema,
-      }),
+      outputSchema: tapQueryOutputSchema,
       title: "Run bounded TAP query",
     },
-    async (input) =>
+    async (input, extra) =>
       runTool(async () => {
+        const startedAt = performance.now();
         const client = createTapClient(input, options);
         const format = input.format;
         const requestFormat = tapRequestFormatForOutput(format);
-        const maxrec = input.maxrec ?? defaultTapQueryMaxrec;
+        const prepared = options.policy.prepareQuery({
+          fallbackMaxrec: defaultTapQueryMaxrec,
+          incomingSignal: extra.signal,
+          requestedMaxrec: input.maxrec,
+          uploads: input.uploads,
+        });
+        const maxrec = prepared.maxrec;
         const result = await client.query(
           input.query,
-          createTapQueryOptions(input, requestFormat, maxrec),
+          createTapQueryOptions(input, requestFormat, maxrec, prepared.signal),
         );
-        const content = await formatTapResult(result, format);
+        const data = await createTapQueryData(result, format);
 
         const diagnostics: {
+          durationMs: number;
           effectiveMaxrec: number;
           format: TapOutputFormat;
           requestFormat: TapSyncFormat;
@@ -273,6 +277,7 @@ function registerQueryTools(
           target: ReturnType<typeof targetDiagnostics>;
           uploadCount: number;
         } = {
+          durationMs: performance.now() - startedAt,
           effectiveMaxrec: maxrec,
           format,
           requestFormat,
@@ -285,13 +290,7 @@ function registerQueryTools(
           diagnostics.runId = input.runId;
         }
 
-        return success(
-          {
-            content,
-            format,
-          },
-          diagnostics,
-        );
+        return success(data, diagnostics);
       }),
   );
 }
@@ -300,8 +299,9 @@ function createTapQueryOptions(
   input: TapQueryInput,
   format: TapSyncFormat,
   maxrec: number,
+  signal: AbortSignal,
 ): QueryOptions {
-  const queryOptions: QueryOptions = { format, maxrec };
+  const queryOptions: QueryOptions = { format, maxrec, signal };
 
   if (input.runId !== undefined) {
     queryOptions.runId = input.runId;

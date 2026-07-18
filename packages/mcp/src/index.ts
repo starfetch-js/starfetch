@@ -6,7 +6,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 
 import { createStarfetchMcpServer } from "./server.js";
 
-export { createStarfetchMcpServer } from "./server.js";
+export {
+  createStarfetchMcpServer,
+  type JobCapabilityOperation,
+  type StarfetchMcpPolicy,
+  type StarfetchMcpServerOptions,
+} from "./server.js";
+export {
+  parseStarfetchTablePresentationSource,
+  type StarfetchTablePresentationSource,
+} from "./table-presentation-source.js";
 
 /**
  * Start the Starfetch MCP server on stdio.

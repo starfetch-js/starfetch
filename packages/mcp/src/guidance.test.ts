@@ -1,34 +1,59 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import {
+  readStarfetchSkillFile,
+  starfetchSkillPaths,
+  type StarfetchSkillPath,
+} from "@starfetch-js/skill";
 import { describe, expect, it } from "vitest";
 
 import { createStarfetchMcpServer } from "./server.js";
+
+const publishedResourceUris = new Map<StarfetchSkillPath, string>([
+  ["references/adql.md", "starfetch://guides/adql"],
+  ["references/tap-metadata.md", "starfetch://guides/tap-metadata"],
+  ["references/services/gaia.md", "starfetch://services/gaia"],
+  ["references/services/simbad.md", "starfetch://services/simbad"],
+  ["examples/proper-motion.md", "starfetch://examples/proper-motion"],
+]);
 
 describe("Starfetch MCP guidance", () => {
   it("exposes canonical Markdown resources", async () => {
     await withClient(async (client) => {
       const resources = await client.listResources();
+      const uris = resources.resources.map((resource) => resource.uri);
 
-      expect(
-        resources.resources.map((resource) => resource.uri).sort(),
-      ).toEqual([
-        "starfetch://examples/proper-motion",
-        "starfetch://guides/adql",
-        "starfetch://guides/tap-metadata",
-        "starfetch://services/gaia",
-        "starfetch://services/simbad",
-      ]);
+      expect(resources.resources).toHaveLength(starfetchSkillPaths.length);
+      expect(new Set(uris).size).toBe(uris.length);
 
-      const result = await client.readResource({
-        uri: "starfetch://guides/adql",
-      });
-      expect(result.contents).toEqual([
-        expect.objectContaining({
-          mimeType: "text/markdown",
-          text: expect.stringContaining("Construct ADQL only after inspecting"),
-          uri: "starfetch://guides/adql",
-        }),
+      for (const resource of resources.resources) {
+        expect(resource.mimeType).toBe("text/markdown");
+        expect(resource.title).toMatch(/\S/);
+        expect(resource.description).toMatch(/\S/);
+      }
+
+      const [exposedEntries, canonicalEntries] = await Promise.all([
+        Promise.all(
+          uris.map(
+            async (uri) =>
+              [uri, await readMarkdownResource(client, uri)] as const,
+          ),
+        ),
+        Promise.all(
+          starfetchSkillPaths.map(
+            async (path) => [path, await readStarfetchSkillFile(path)] as const,
+          ),
+        ),
       ]);
+      const exposedByUri = new Map(exposedEntries);
+      const canonicalByPath = new Map(canonicalEntries);
+      expect([...exposedByUri.values()].sort()).toEqual(
+        [...canonicalByPath.values()].sort(),
+      );
+
+      for (const [path, uri] of publishedResourceUris) {
+        expect(exposedByUri.get(uri)).toBe(canonicalByPath.get(path));
+      }
     });
   });
 
@@ -75,6 +100,26 @@ describe("Starfetch MCP guidance", () => {
     });
   });
 });
+
+async function readMarkdownResource(
+  client: Client,
+  uri: string,
+): Promise<string> {
+  const result = await client.readResource({ uri });
+  expect(result.contents).toHaveLength(1);
+
+  const [content] = result.contents;
+  expect(content).toEqual(
+    expect.objectContaining({
+      mimeType: "text/markdown",
+      uri,
+    }),
+  );
+  if (content === undefined || !("text" in content)) {
+    throw new Error(`Expected Markdown text for ${uri}`);
+  }
+  return content.text;
+}
 
 async function withClient(
   run: (client: Client) => Promise<void>,

@@ -8,6 +8,7 @@ export default [
       "dist/**",
       ".tmp/**",
       "node_modules/**",
+      "apps/*/dist/**",
       "packages/*/dist/**",
     ],
   },
@@ -30,7 +31,7 @@ export default [
     files: ["**/*.ts"],
     languageOptions: {
       parserOptions: {
-        project: "./tsconfig.base.json",
+        project: ["./tsconfig.base.json", "./apps/mcp-app/web/tsconfig.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },
