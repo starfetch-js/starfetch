@@ -7,6 +7,8 @@ runs Starfetch online and accepts connections over HTTPS. These terms do not
 apply to the npm packages, a locally launched Starfetch server, the CLI, the
 TypeScript library, or an independent deployment.
 
+The remote service is operated by [Ma1kovich](https://github.com/Ma1kovich).
+
 By using the remote service, you agree to these terms.
 
 ## Service

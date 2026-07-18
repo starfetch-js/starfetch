@@ -20,6 +20,7 @@ export const STARFETCH_TABLE_RESOURCE_URI = "ui://starfetch/table/v1";
 export type HostedStarfetchMcpServerOptions = Readonly<{
   loadWidgetHtml?: () => Promise<string>;
   mcp?: StarfetchMcpServerOptions;
+  publicOrigin?: string;
 }>;
 
 export function createHostedStarfetchMcpServer(
@@ -32,6 +33,9 @@ export function createHostedStarfetchMcpServer(
       connectDomains: [],
       resourceDomains: [],
     },
+    ...(options.publicOrigin === undefined
+      ? {}
+      : { domain: options.publicOrigin }),
     permissions: { clipboardWrite: {} },
     prefersBorder: false,
   } as const;

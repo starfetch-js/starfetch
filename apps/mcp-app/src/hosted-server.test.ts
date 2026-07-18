@@ -93,6 +93,7 @@ describe("hosted Starfetch MCP server", () => {
     const widgetHtml = "<!doctype html><title>Starfetch results</title>";
     const server = createHostedStarfetchMcpServer({
       loadWidgetHtml: async () => widgetHtml,
+      publicOrigin: "https://starfetch-production.run.app",
       mcp: {
         policy: createHostedStarfetchMcpPolicy({
           jobCapabilities: createJobCapabilityIssuer({
@@ -188,6 +189,7 @@ describe("hosted Starfetch MCP server", () => {
                 connectDomains: [],
                 resourceDomains: [],
               },
+              domain: "https://starfetch-production.run.app",
               permissions: { clipboardWrite: {} },
               prefersBorder: false,
             }),

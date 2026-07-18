@@ -16,6 +16,9 @@ describe("Starfetch MCP HTTP app", () => {
     ["PORT", "65536"],
     ["ALLOWED_ORIGINS", "allowed.example"],
     ["SHUTDOWN_GRACE_MS", "0"],
+    ["STARFETCH_OPENAI_APPS_CHALLENGE", "line-one\nline-two"],
+    ["STARFETCH_PUBLIC_ORIGIN", "http://starfetch.example"],
+    ["STARFETCH_PUBLIC_ORIGIN", "https://starfetch.example/mcp"],
   ])("rejects invalid %s configuration", async (name, value) => {
     await expect(
       startStarfetchMcpApp({
@@ -245,6 +248,46 @@ describe("Starfetch MCP HTTP app", () => {
       await expect(response.json()).resolves.toEqual({ status: "ok" });
     } finally {
       await app.close();
+    }
+  });
+
+  it("serves the OpenAI app challenge only when configured", async () => {
+    const inactiveApp = await startStarfetchMcpApp({
+      HOST: "127.0.0.1",
+      PORT: "0",
+    });
+
+    try {
+      const response = await fetch(
+        new URL("/.well-known/openai-apps-challenge", inactiveApp.origin),
+      );
+
+      expect(response.status).toBe(404);
+    } finally {
+      await inactiveApp.close();
+    }
+
+    const events: unknown[] = [];
+    const activeApp = await startStarfetchMcpApp(
+      {
+        HOST: "127.0.0.1",
+        PORT: "0",
+        STARFETCH_OPENAI_APPS_CHALLENGE: " challenge-token ",
+      },
+      { writeLog: (event) => events.push(event) },
+    );
+
+    try {
+      const response = await fetch(
+        new URL("/.well-known/openai-apps-challenge", activeApp.origin),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toMatch(/^text\/plain/);
+      expect(await response.text()).toBe("challenge-token");
+      expect(JSON.stringify(events)).not.toContain("challenge-token");
+    } finally {
+      await activeApp.close();
     }
   });
 

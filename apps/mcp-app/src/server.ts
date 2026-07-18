@@ -64,7 +64,8 @@ export async function startStarfetchMcpApp(
   dependencies: ServerDependencies = {},
 ): Promise<RunningStarfetchMcpApp> {
   const config = loadHttpConfig(environment);
-  const { allowedOrigins, host, port, shutdownGraceMs } = config;
+  const { allowedOrigins, host, openAiAppsChallenge, port, shutdownGraceMs } =
+    config;
   const guardedFetch = createGuardedFetch({
     maxConcurrency: hostedPolicyLimits.maxOutboundConcurrency,
     maxRedirects: hostedPolicyLimits.maxRedirects,
@@ -91,6 +92,9 @@ export async function startStarfetchMcpApp(
     (() =>
       createHostedStarfetchMcpServer({
         mcp: { fetch: guardedFetch, policy },
+        ...(config.publicOrigin === undefined
+          ? {}
+          : { publicOrigin: config.publicOrigin }),
       }));
   const writeLog = dependencies.writeLog ?? writeJsonLog;
   const exchanges = createExchangeRegistry((requestId) =>
@@ -175,6 +179,11 @@ export async function startStarfetchMcpApp(
     }),
   );
   app.get("/health", (context) => context.json({ status: "ok" }));
+  app.get("/.well-known/openai-apps-challenge", (context) =>
+    openAiAppsChallenge === undefined
+      ? context.notFound()
+      : context.text(openAiAppsChallenge),
+  );
 
   app.all("/mcp", async (context) => {
     if (!accepting) {

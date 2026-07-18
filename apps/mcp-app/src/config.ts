@@ -4,20 +4,69 @@ export type HttpConfig = Readonly<{
   allowedOrigins: ReadonlySet<string>;
   host: string;
   jobCapabilitySecret?: string;
+  openAiAppsChallenge?: string;
   port: number;
+  publicOrigin?: string;
   shutdownGraceMs: number;
 }>;
 
 export function loadHttpConfig(environment: Environment): HttpConfig {
+  const openAiAppsChallenge = parseOpenAiAppsChallenge(
+    environment.STARFETCH_OPENAI_APPS_CHALLENGE,
+  );
+  const publicOrigin = parsePublicOrigin(environment.STARFETCH_PUBLIC_ORIGIN);
+
   return {
     allowedOrigins: parseAllowedOrigins(environment.ALLOWED_ORIGINS),
     host: parseHost(environment.HOST),
     ...(environment.STARFETCH_JOB_CAPABILITY_SECRET === undefined
       ? {}
       : { jobCapabilitySecret: environment.STARFETCH_JOB_CAPABILITY_SECRET }),
+    ...(openAiAppsChallenge === undefined ? {} : { openAiAppsChallenge }),
     port: parsePort(environment.PORT),
+    ...(publicOrigin === undefined ? {} : { publicOrigin }),
     shutdownGraceMs: parseShutdownGrace(environment.SHUTDOWN_GRACE_MS),
   };
+}
+
+function parsePublicOrigin(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw invalidPublicOriginError();
+  }
+
+  if (url.protocol !== "https:" || url.origin !== value) {
+    throw invalidPublicOriginError();
+  }
+
+  return value;
+}
+
+function invalidPublicOriginError(): Error {
+  return new Error("STARFETCH_PUBLIC_ORIGIN must be an HTTPS origin.");
+}
+
+function parseOpenAiAppsChallenge(
+  value: string | undefined,
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const challenge = value.trim();
+  if (challenge === "" || /[\r\n]/.test(challenge)) {
+    throw new Error(
+      "STARFETCH_OPENAI_APPS_CHALLENGE must be a non-empty single-line token.",
+    );
+  }
+
+  return challenge;
 }
 
 function parsePort(value: string | undefined): number {
