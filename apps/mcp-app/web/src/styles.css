@@ -294,8 +294,10 @@ h3 {
   max-width: 100%;
   max-height: min(52vh, 420px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  touch-action: pan-x pan-y;
   border: 1px solid var(--sf-border);
   border-radius: var(--sf-radius);
 }
@@ -303,6 +305,15 @@ h3 {
 .table-scroll[data-mode="fullscreen"] {
   max-height: min(70vh, 720px);
   overflow: auto;
+}
+
+.table-scroll[data-mobile="true"] {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: auto;
 }
 
 table {

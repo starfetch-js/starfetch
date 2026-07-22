@@ -128,6 +128,85 @@ test("keeps mobile hosts inline instead of exposing a broken fullscreen path", a
   ).toBeVisible();
 });
 
+test("uses short pages and horizontal touch scrolling inside mobile hosts", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium");
+
+  await page.goto("/test-host.html?mobile=1");
+  const widget = page.frameLocator("iframe[title='Starfetch widget']");
+  const scrollViewport = widget.locator(".table-scroll");
+  await expect(
+    widget.getByRole("table", { name: "Gaia source results" }),
+  ).toBeVisible();
+  await expect(widget.locator("tbody tr")).toHaveCount(10);
+  await expect(
+    widget.getByText("Page 1 of 10 · rows 1–10 of 100"),
+  ).toBeVisible();
+
+  const viewport = await scrollViewport.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      clientHeight: element.clientHeight,
+      overflowY: computed.overflowY,
+      scrollHeight: element.scrollHeight,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      touchAction: computed.touchAction,
+    };
+  });
+  expect(viewport.touchAction).toBe("pan-x pan-y");
+  expect(viewport.overflowY).toBe("hidden");
+  expect(viewport.scrollHeight).toBe(viewport.clientHeight);
+  expect(viewport.scrollWidth).toBeGreaterThan(viewport.clientWidth);
+  const html = await readFile(
+    new URL("../dist/index.html", import.meta.url),
+    "utf8",
+  );
+  expect(html).toContain("-webkit-overflow-scrolling:touch");
+
+  const bounds = await scrollViewport.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) return;
+
+  const touch = await page.context().newCDPSession(page);
+  const start = {
+    x: bounds.x + bounds.width * 0.75,
+    y: bounds.y + bounds.height * 0.5,
+  };
+  await touch.send("Input.dispatchTouchEvent", {
+    touchPoints: [start],
+    type: "touchStart",
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    touchPoints: [{ x: start.x - 80, y: start.y }],
+    type: "touchMove",
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    touchPoints: [{ x: start.x - 160, y: start.y }],
+    type: "touchMove",
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    touchPoints: [],
+    type: "touchEnd",
+  });
+
+  await expect
+    .poll(() =>
+      scrollViewport.evaluate((element) => ({
+        left: element.scrollLeft,
+        top: element.scrollTop,
+      })),
+    )
+    .toMatchObject({ left: expect.any(Number), top: expect.any(Number) });
+  const scrollPosition = await scrollViewport.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  expect(scrollPosition.left).toBeGreaterThan(0);
+  expect(scrollPosition.top).toBe(0);
+});
+
 test("supports keyboard actions, host downloads, and table expansion", async ({
   context,
   page,

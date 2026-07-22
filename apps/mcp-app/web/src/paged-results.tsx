@@ -29,7 +29,8 @@ import { ResultActions } from "./result-actions.js";
 import { ResultNotices } from "./result-details.js";
 
 type TableRow = StarfetchTableViewV1["rows"][number];
-const pageSize = 100;
+const desktopPageSize = 100;
+const mobilePageSize = 10;
 
 export function PagedResults({
   host,
@@ -50,6 +51,7 @@ export function PagedResults({
     (listener) => host.subscribe(listener),
     () => host.getSnapshot(),
   );
+  const pageSize = hostSnapshot.isMobile ? mobilePageSize : desktopPageSize;
   const columns = useMemo<ColumnDef<TableRow>[]>(
     () =>
       view.columns.map((column) => ({
@@ -130,6 +132,7 @@ export function PagedResults({
       <ResultNotices view={view} />
       <div
         className="table-scroll"
+        data-mobile={hostSnapshot.isMobile ? "true" : undefined}
         data-mode={hostSnapshot.mode}
         ref={scrollElement}
       >

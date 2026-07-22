@@ -26,6 +26,7 @@ export type StarfetchHostBridge = Readonly<{
 export type StarfetchHostSnapshot = Readonly<{
   canAnalyze: boolean;
   canExpand: boolean;
+  isMobile: boolean;
   mode: StarfetchDisplayMode;
 }>;
 
@@ -210,6 +211,7 @@ function createSnapshot(
     canExpand:
       context.platform !== "mobile" &&
       (context.availableDisplayModes?.includes("fullscreen") ?? false),
+    isMobile: context.platform === "mobile",
     mode: context.displayMode ?? "inline",
   };
 }
