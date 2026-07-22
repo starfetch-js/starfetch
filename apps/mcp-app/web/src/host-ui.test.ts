@@ -25,6 +25,7 @@ describe("StarfetchHostSession", () => {
 
     expect(session.getSnapshot()).toMatchObject({
       canExpand: true,
+      isMobile: false,
       mode: "inline",
     });
     await expect(session.setExpanded(true)).resolves.toBe(true);
@@ -57,6 +58,7 @@ describe("StarfetchHostSession", () => {
     expect(onChange).toHaveBeenCalledOnce();
     expect(session.getSnapshot()).toMatchObject({
       canExpand: true,
+      isMobile: false,
       mode: "fullscreen",
     });
 

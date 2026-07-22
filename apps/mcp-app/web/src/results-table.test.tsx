@@ -239,6 +239,26 @@ describe("ResultsTable", () => {
     ).toBeNull();
   });
 
+  it("paginates mobile results in 10-row pages", async () => {
+    const user = userEvent.setup();
+    render(
+      <ResultsTable
+        host={createHost({
+          context: {
+            displayMode: "inline",
+            platform: "mobile",
+          },
+        })}
+        view={createQueryView(25)}
+      />,
+    );
+
+    expect(screen.getAllByRole("row")).toHaveLength(11);
+    expect(screen.getByText("Page 1 of 3 · rows 1–10 of 25")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByText("Page 2 of 3 · rows 11–20 of 25")).toBeTruthy();
+  });
+
   it("paginates the globally sorted table in 100-row pages", async () => {
     const user = userEvent.setup();
     render(<ResultsTable host={createHost()} view={createQueryView(250)} />);

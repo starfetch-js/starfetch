@@ -567,11 +567,12 @@ The widget uses the standard MCP Apps host bridge for tool results, theme
 variables, display-mode requests, model-context updates, and file downloads.
 It also reads ChatGPT's initial tool globals when present and uses ChatGPT's
 file APIs only as a download fallback. Its React UI uses semantic table markup,
-global TanStack Table sorting, page-scoped row selection, 100-row client-side
-pages, and fine-grained Shiki SQL highlighting for exact ADQL. The table uses a
-capped two-axis scroll viewport. An icon-only control in
+global TanStack Table sorting, page-scoped row selection, 100-row desktop pages,
+10-row mobile pages, and fine-grained Shiki SQL highlighting for exact ADQL.
+Desktop tables use a capped two-axis scroll viewport; mobile tables expand to
+the page height and retain horizontal scrolling for wide results. An icon-only control in
 the action toolbar requests fullscreen or inline display mode. Another action
-can expose selected rows or the current 100-row page to the model for the next
+can expose selected rows or the current page to the model for the next
 turn; it does not expose the whole loaded table. The action remains available,
 and each press replaces the previously pending model-context snapshot. The
 resource declares no network or static-resource domains and requests only
