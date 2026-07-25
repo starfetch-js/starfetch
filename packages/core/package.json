@@ -1,6 +1,6 @@
 {
   "name": "@starfetch-js/core",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "TypeScript library for querying Gaia, SIMBAD, VizieR, and other public astronomy TAP services with reproducible ADQL.",
   "type": "module",
   "license": "MIT",

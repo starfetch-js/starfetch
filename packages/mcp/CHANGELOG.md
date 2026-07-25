@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.3.0](https://github.com/starfetch-js/starfetch/compare/v0.2.3...v0.3.0) (2026-07-25)
+
+### Features
+
+- expose complete Starfetch guidance over MCP ([b88730b](https://github.com/starfetch-js/starfetch/commit/b88730b70a876527ca0ebf19379d722be0afb47b))
+- **mcp-app:** define bounded table presentation ([8546474](https://github.com/starfetch-js/starfetch/commit/8546474f1cd234cbf887d5fa6aff282efc7a80c9))
+
 ## [0.2.3](https://github.com/starfetch-js/starfetch/compare/v0.2.2...v0.2.3) (2026-07-13)
 
 **Note:** Version bump only for package @starfetch-js/mcp
