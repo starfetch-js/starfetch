@@ -11,7 +11,8 @@
 <p align="center">
   <a href="https://github.com/starfetch-js/starfetch/actions/workflows/ci.yml"><img src="https://github.com/starfetch-js/starfetch/actions/workflows/ci.yml/badge.svg?branch=main&amp;event=push" alt="CI" /></a>
   <a href="https://codecov.io/gh/starfetch-js/starfetch"><img src="https://codecov.io/gh/starfetch-js/starfetch/graph/badge.svg?branch=main" alt="Coverage" /></a>
-  <a href="https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch"><img src="https://img.shields.io/badge/MCP_Registry-listed-6f42c1" alt="MCP Registry" /></a>
+  <a href="https://registry.modelcontextprotocol.io/?q=io.github.starfetch-js%2Fstarfetch"><img src="https://img.shields.io/badge/MCP_Registry-listed-6f42c1" alt="MCP Registry" /></a>
+  <a href="https://glama.ai/mcp/servers/starfetch-js/starfetch"><img src="https://glama.ai/mcp/servers/starfetch-js/starfetch/badges/score.svg" alt="Starfetch on Glama" /></a>
   <a href="https://www.skills.sh/starfetch-js/starfetch/starfetch"><img src="https://img.shields.io/badge/skills.sh-starfetch-111827" alt="skills.sh" /></a>
   <a href="https://www.npmjs.com/package/@starfetch-js/mcp"><img src="https://img.shields.io/npm/v/@starfetch-js/mcp?label=npm" alt="npm version" /></a>
 </p>
@@ -85,7 +86,7 @@ your computer and can be registered with any compatible MCP client.
 Register Starfetch with the agent client that will launch it. Running the MCP
 package by itself only starts a stdio server; it does not connect that server to
 an agent. Starfetch is also discoverable through the
-[official MCP Registry](https://registry.modelcontextprotocol.io/?search=io.github.starfetch-js%2Fstarfetch).
+[official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.starfetch-js%2Fstarfetch).
 
 #### Codex
 
