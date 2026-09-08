@@ -92,6 +92,9 @@ try {
     "-e",
     "/workspace/node_modules/typescript",
   ]);
+} catch (error) {
+  await run("docker", ["logs", container], true);
+  throw error;
 } finally {
   await run("docker", ["rm", "--force", container], true);
 }
