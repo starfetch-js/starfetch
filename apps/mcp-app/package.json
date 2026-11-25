@@ -19,7 +19,7 @@
     "typecheck": "tsc -p tsconfig.typecheck.json && tsc -p web/tsconfig.json"
   },
   "dependencies": {
-    "@hono/node-server": "1.19.14",
+    "@hono/node-server": "2.1.11",
     "@modelcontextprotocol/client": "2.4.0",
     "@modelcontextprotocol/ext-apps": "2.1.0",
     "@modelcontextprotocol/server": "2.4.0",
@@ -29,13 +29,13 @@
     "@shikijs/themes": "4.3.1",
     "@starfetch-js/mcp": "0.3.0",
     "@tanstack/react-table": "8.21.3",
-    "hono": "4.12.27",
+    "hono": "4.13.22",
     "ipaddr.js": "2.4.0",
     "lucide-react": "1.24.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "undici": "7.28.0",
-    "zod": "4.4.3"
+    "undici": "7.30.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

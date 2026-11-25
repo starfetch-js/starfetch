@@ -55,7 +55,7 @@
     "access": "public"
   },
   "dependencies": {
-    "csv-parse": "7.0.1",
+    "csv-parse": "7.0.3",
     "saxes": "6.0.0"
   }
 }
