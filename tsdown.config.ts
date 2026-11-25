@@ -4,7 +4,11 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
   deps: {
-    neverBundle: ["@starfetch-js/skill"],
+    neverBundle: [
+      "@starfetch-js/skill",
+      // The hosted app and the server factory must share the SDK's runtime classes.
+      /^@modelcontextprotocol\/server(?:\/|$)/,
+    ],
   },
   entry: [resolve(process.cwd(), "src/index.ts")],
   fixedExtension: false,

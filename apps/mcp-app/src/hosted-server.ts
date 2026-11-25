@@ -76,7 +76,7 @@ export function createHostedStarfetchMcpServer(
       : { domain: options.publicOrigin }),
     permissions: { clipboardWrite: {} },
     prefersBorder: false,
-  } as const;
+  };
 
   registerAppTool(
     server,
@@ -136,7 +136,7 @@ export function createHostedStarfetchMcpServer(
     async (input, extra) => {
       const result = await executeStarfetchTapQuery(
         input,
-        extra.signal,
+        extra.mcpReq.signal,
         queryExecutionOptions,
         hostedTableDefaultMaxrec,
       );

@@ -1,5 +1,4 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import {
   readStarfetchSkillFile,
   starfetchSkillPaths,
@@ -20,13 +19,16 @@ const publishedResourceUris = new Map<StarfetchSkillPath, string>([
 describe("Starfetch MCP guidance", () => {
   it("exposes canonical Markdown resources", async () => {
     await withClient(async (client) => {
-      const resources = await client.listResources();
-      const uris = resources.resources.map((resource) => resource.uri);
+      const { resources } = await client.listResources();
+      const guidance = resources.filter((resource) =>
+        resource.uri.startsWith("starfetch://"),
+      );
+      const uris = guidance.map((resource) => resource.uri);
 
-      expect(resources.resources).toHaveLength(starfetchSkillPaths.length);
+      expect(guidance).toHaveLength(starfetchSkillPaths.length);
       expect(new Set(uris).size).toBe(uris.length);
 
-      for (const resource of resources.resources) {
+      for (const resource of guidance) {
         expect(resource.mimeType).toBe("text/markdown");
         expect(resource.title).toMatch(/\S/);
         expect(resource.description).toMatch(/\S/);

@@ -229,29 +229,31 @@ data processing, or authoritative astrophysical interpretation.
 
 ## Reliability without hidden assumptions
 
-The MCP server works without installing a filesystem skill. Starfetch carries
-the same canonical guidance through three overlapping layers:
+The MCP server works without installing a filesystem skill. Starfetch offers
+the same canonical guidance through these surfaces:
 
 | Layer                     | Role                                                                            |
 | ------------------------- | ------------------------------------------------------------------------------- |
 | MCP tool descriptions     | Minimum metadata-first and bounded-query contract available to every MCP client |
 | MCP prompts and resources | Discoverable workflows, ADQL guidance, service notes, and examples              |
-| Optional Starfetch skill  | Rich multi-step behavior across longer agent interactions                       |
+| Skills over MCP           | On-demand discovery of the full Starfetch skill by compatible clients           |
+| Filesystem skill          | Full Starfetch workflow for agents that discover skills locally                 |
 
 The server exposes the retrievable prompts `query_astronomy_catalog`,
 `explore_service`, `run_cone_search`, and `troubleshoot_adql`. Canonical
 Markdown resources are available under `starfetch://guides/`,
 `starfetch://services/`, and `starfetch://examples/`.
 
-Prompt and resource support depends on the MCP client. Tool descriptions remain
-self-sufficient for basic safe operation when a client exposes tools only. The
-optional skill contains the full workflow, service references, and examples.
+The stdio server and hosted HTTP app support the `2025-11-25` and `2026-07-28`
+MCP protocol revisions. Clients that support the [Skills over MCP extension](https://modelcontextprotocol.io/extensions/skills/overview)
+can discover `skill://starfetch/SKILL.md` and load its references and examples
+without a separate install. Tool descriptions carry the minimum workflow for
+clients that expose tools only.
 
 ## Optional Starfetch skill
 
-Install the skill when the agent client supports filesystem skills and you want
-the strongest multi-interaction behavior. The skill is recommended, not
-required by the MCP server.
+Install the filesystem skill when your client uses local skill discovery or
+when you want the same guidance for CLI workflows.
 
 Install the canonical skill directly from GitHub through skills.sh:
 

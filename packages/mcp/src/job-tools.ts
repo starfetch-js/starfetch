@@ -1,4 +1,4 @@
-import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer } from "@modelcontextprotocol/server";
 import {
   tapRequestFormatForOutput,
   type QueryOptions,
@@ -93,7 +93,7 @@ export function registerJobTools(
         const client = createTapClient(input, options);
         const prepared = options.policy.prepareQuery({
           fallbackMaxrec: defaultTapJobSubmitMaxrec,
-          incomingSignal: extra.signal,
+          incomingSignal: extra.mcpReq.signal,
           requestedMaxrec: input.maxrec,
           uploads: input.uploads,
         });
@@ -153,7 +153,7 @@ export function registerJobTools(
           "status",
         );
         const status = await job.status({
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
 
         return success(status, {
@@ -186,7 +186,7 @@ export function registerJobTools(
         const wait = options.policy.prepareWait(
           input,
           defaultTapJobWaitTimeoutMs,
-          extra.signal,
+          extra.mcpReq.signal,
         );
         const timeoutMs = wait.timeoutMs;
         const status = await job.wait(
@@ -225,7 +225,7 @@ export function registerJobTools(
         const requestFormat = tapRequestFormatForOutput(format);
         const result = await job.fetch({
           format: input.sourceFormat ?? requestFormat,
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
         const data = await createTapQueryData(result, format);
 
@@ -273,7 +273,7 @@ export function registerJobTools(
         };
 
         await job.delete({
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
 
         return success(data, {

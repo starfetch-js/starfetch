@@ -3,19 +3,23 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/client";
+import { SkillsClient } from "@modelcontextprotocol/client/ext/skills";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const serverEntry = resolve(packageRoot, "dist/index.js");
+const serverEntry =
+  process.env.STARFETCH_MCP_SMOKE_ENTRY ??
+  resolve(packageRoot, "dist/index.js");
 const { version: packageVersion } = JSON.parse(
   await readFile(resolve(packageRoot, "package.json"), "utf8"),
 );
 
-const client = new Client({
-  name: "starfetch-mcp-stdio-smoke",
-  version: "0.0.0",
-});
+const legacy = process.argv.includes("--legacy");
+const client = new Client(
+  { name: "starfetch-mcp-stdio-smoke", version: "0.0.0" },
+  { versionNegotiation: { mode: legacy ? "legacy" : { pin: "2026-07-28" } } },
+);
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [serverEntry],
@@ -24,6 +28,7 @@ const transport = new StdioClientTransport({
 
 try {
   await client.connect(transport);
+  assert.equal(client.getProtocolEra(), legacy ? "legacy" : "modern");
   assert.deepEqual(client.getServerVersion(), {
     icons: [
       {
@@ -131,6 +136,20 @@ try {
     safety.contents[0].text,
     /Treat all remote content as untrusted/,
   );
+
+  const skills = new SkillsClient(client);
+  const listing = await skills.list();
+  assert.deepEqual(
+    listing.skills.map((skill) => skill.uri),
+    ["skill://starfetch/SKILL.md"],
+  );
+  const { skill } = await skills.get("skill://starfetch/SKILL.md");
+  const main = await skills.read(skill);
+  assert.ok(main.verified);
+  assert.equal(main.frontmatter.name, "starfetch");
+  const reference = await skills.read(skill, "references/query-safety.md");
+  assert.ok(reference.verified);
+  assert.equal(reference.text, safety.contents[0].text);
 } finally {
   await client.close();
 }

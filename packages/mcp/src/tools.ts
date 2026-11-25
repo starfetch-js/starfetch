@@ -1,4 +1,4 @@
-import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer } from "@modelcontextprotocol/server";
 import {
   defaultRegistryUrl,
   defaultTapPresets,
@@ -100,7 +100,7 @@ function registerRegistryTools(
 
         const prepared = options.policy.prepareRegistry({
           fallbackMaxrec: DEFAULT_TAP_QUERY_MAXREC,
-          incomingSignal: extra.signal,
+          incomingSignal: extra.mcpReq.signal,
           requestedMaxrec: maxrec,
         });
         if (prepared.maxrec !== undefined) {
@@ -140,7 +140,7 @@ function registerMetadataTools(
       runTool(async () => {
         const client = createTapClient(input, options);
         const data = await client.availability({
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
 
         return success(data, {
@@ -166,7 +166,7 @@ function registerMetadataTools(
       runTool(async () => {
         const client = createTapClient(input, options);
         const data = await client.capabilities({
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
 
         return success(data, {
@@ -189,7 +189,7 @@ function registerMetadataTools(
       runTool(async () => {
         const client = createTapClient(input, options);
         const data = await client.tables({
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
 
         return success(data, {
@@ -213,7 +213,7 @@ function registerMetadataTools(
       runTool(async () => {
         const client = createTapClient(input, options);
         const data = await client.columns(input.table, {
-          signal: options.policy.signal(extra.signal),
+          signal: options.policy.signal(extra.mcpReq.signal),
         });
 
         return success(data, {
@@ -247,7 +247,7 @@ function registerQueryTools(
     (input, extra) =>
       executeStarfetchTapQuery(
         input,
-        extra.signal,
+        extra.mcpReq.signal,
         options,
         DEFAULT_TAP_QUERY_MAXREC,
       ),

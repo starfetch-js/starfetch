@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
 const image =
@@ -62,6 +63,25 @@ try {
   assert.equal(initialized.status, 200);
   assert.match(await initialized.text(), /"name":"starfetch"/);
 
+  const listing = await callModernMcp(origin, "skills/list");
+  assert.deepEqual(
+    listing.skills.map((skill) => skill.uri),
+    ["skill://starfetch/SKILL.md"],
+  );
+  const entry = listing.skills[0];
+  const paths = [entry.uri, "skill://starfetch/references/query-safety.md"];
+  for (const uri of paths) {
+    const file = entry.resources.find((resource) => resource.uri === uri);
+    assert.ok(file, `Expected ${uri} in the packed skill manifest`);
+    const result = await callModernMcp(origin, "resources/read", { uri });
+    const { text } = result.contents[0];
+    assert.equal(Buffer.byteLength(text), file.size);
+    assert.equal(
+      `sha256:${createHash("sha256").update(text).digest("hex")}`,
+      file.digest,
+    );
+  }
+
   const user = (await output("docker", ["exec", container, "id", "-u"])).trim();
   assert.notEqual(
     user,
@@ -97,6 +117,41 @@ try {
   throw error;
 } finally {
   await run("docker", ["rm", "--force", container], true);
+}
+
+async function callModernMcp(origin, method, params = {}) {
+  const revision = "2026-07-28";
+  const response = await globalThis.fetch(new globalThis.URL("/mcp", origin), {
+    method: "POST",
+    headers: {
+      accept: "application/json, text/event-stream",
+      "content-type": "application/json",
+      "mcp-protocol-version": revision,
+      "mcp-method": method,
+      ...(params.uri === undefined ? {} : { "mcp-name": params.uri }),
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      params: {
+        ...params,
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": revision,
+          "io.modelcontextprotocol/clientInfo": {
+            name: "starfetch-container-smoke",
+            version: "0.0.0",
+          },
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
+    }),
+  });
+  const body = await response.text();
+  assert.equal(response.status, 200, body);
+  const message = JSON.parse(body.match(/^data: (.+)$/m)?.[1] ?? body);
+  assert.ok(message.result, JSON.stringify(message));
+  return message.result;
 }
 
 async function waitForHealth(origin) {
