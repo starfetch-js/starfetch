@@ -23,13 +23,15 @@ const serverInstructions =
 export type StarfetchMcpServerOptions = {
   /** Custom fetch implementation used by Starfetch core operations. */
   fetch?: typeof fetch;
+  /** Maximum combined number of array entries and object keys in tool arguments. */
+  maxToolInputElements?: number;
   /** Optional operational policy, used by hosted deployments. */
   policy?: StarfetchMcpPolicy;
 };
 
 export type StarfetchMcpRuntimeOptions = Omit<
   StarfetchMcpServerOptions,
-  "policy"
+  "maxToolInputElements" | "policy"
 > & {
   policy: StarfetchMcpPolicy;
 };
@@ -58,6 +60,9 @@ export function createStarfetchMcpServer(
     },
     {
       instructions: serverInstructions,
+      ...(options.maxToolInputElements === undefined
+        ? {}
+        : { maxToolInputElements: options.maxToolInputElements }),
     },
   );
 

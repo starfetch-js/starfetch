@@ -18,6 +18,7 @@ export const hostedPolicyLimits = Object.freeze({
   maxRedirects: 3,
   maxRequestBytes: 2_097_152,
   maxResponseBytes: 8_388_608,
+  maxToolInputElements: 8_192,
   maxrec: 10_000,
   ratePerMinute: 100,
   toolTimeoutMs: 60_000,

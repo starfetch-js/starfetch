@@ -489,7 +489,8 @@ environment-only:
 
 The anonymous HTTP policy is a fixed, tested product profile rather than a
 set of independently tunable environment variables. It caps MCP requests at 2
-MiB, TAP responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 10,000,
+MiB, tool arguments at 8,192 array entries and object keys combined, TAP
+responses at 8 MiB, inline uploads at 1 MiB, `MAXREC` at 10,000,
 redirects at 3, outbound requests at 4 concurrent operations, and tools at 60
 seconds. Canonical synchronous queries still default to `MAXREC=100`; the
 interactive table query defaults to `MAXREC=1000` and caps its widget payload

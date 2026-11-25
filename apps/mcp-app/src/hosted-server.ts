@@ -57,7 +57,10 @@ export type HostedStarfetchMcpServerOptions = Readonly<{
 export function createHostedStarfetchMcpServer(
   options: HostedStarfetchMcpServerOptions = {},
 ): ReturnType<typeof createStarfetchMcpServer> {
-  const server = createStarfetchMcpServer(options.mcp);
+  const server = createStarfetchMcpServer({
+    ...options.mcp,
+    maxToolInputElements: hostedPolicyLimits.maxToolInputElements,
+  });
   const queryExecutionOptions = {
     ...options.mcp,
     policy: options.mcp?.policy ?? unrestrictedStarfetchMcpPolicy,
