@@ -20,8 +20,9 @@
   },
   "dependencies": {
     "@hono/node-server": "1.19.14",
-    "@modelcontextprotocol/ext-apps": "1.7.4",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/ext-apps": "2.1.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "@shikijs/core": "4.3.1",
     "@shikijs/engine-javascript": "4.3.1",
     "@shikijs/langs": "4.3.1",

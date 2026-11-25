@@ -2,7 +2,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
 import { createStarfetchMcpServer } from "./server.js";
 export {
@@ -32,8 +32,7 @@ export {
  * `npx -y @starfetch-js/mcp`.
  */
 export async function runStdioServer(): Promise<void> {
-  const server = createStarfetchMcpServer();
-  await server.connect(new StdioServerTransport());
+  serveStdio(() => createStarfetchMcpServer());
 }
 
 if (isMcpEntrypoint(import.meta.url, process.argv[1])) {

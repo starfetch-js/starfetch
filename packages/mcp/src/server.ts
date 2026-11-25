@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import {
+  memorySkillFiles,
+  SkillsExtension,
+} from "@modelcontextprotocol/server/ext/skills";
+import { readStarfetchSkillFiles } from "@starfetch-js/skill";
 
 import { registerStarfetchGuidance } from "./guidance.js";
 import {
@@ -19,17 +24,31 @@ export const mcpServerVersion = readPackageVersion();
 const serverInstructions =
   "Select an explicit TAP service, inspect availability and relevant table and column metadata before writing service-specific ADQL, and execute a small bounded query. On schema or syntax failure, re-inspect metadata before retrying. Report the exact service, table, ADQL, effective limit, output format, and assumptions. Never present a service error as an empty scientific result. Do not provide credentials.";
 
+const skillCatalog = await SkillsExtension.load(
+  memorySkillFiles(
+    Object.fromEntries(
+      (await readStarfetchSkillFiles()).map(({ relativePath, contents }) => [
+        `starfetch/${relativePath}`,
+        contents,
+      ]),
+    ),
+  ),
+  { strict: true },
+);
+
 /** Options for constructing a Starfetch MCP server. */
 export type StarfetchMcpServerOptions = {
   /** Custom fetch implementation used by Starfetch core operations. */
   fetch?: typeof fetch;
+  /** Maximum combined number of array entries and object keys in tool arguments. */
+  maxToolInputElements?: number;
   /** Optional operational policy, used by hosted deployments. */
   policy?: StarfetchMcpPolicy;
 };
 
 export type StarfetchMcpRuntimeOptions = Omit<
   StarfetchMcpServerOptions,
-  "policy"
+  "maxToolInputElements" | "policy"
 > & {
   policy: StarfetchMcpPolicy;
 };
@@ -58,6 +77,9 @@ export function createStarfetchMcpServer(
     },
     {
       instructions: serverInstructions,
+      ...(options.maxToolInputElements === undefined
+        ? {}
+        : { maxToolInputElements: options.maxToolInputElements }),
     },
   );
 
@@ -68,6 +90,7 @@ export function createStarfetchMcpServer(
 
   registerStarfetchTools(server, runtimeOptions);
   registerStarfetchGuidance(server);
+  skillCatalog.attach(server);
 
   return server;
 }

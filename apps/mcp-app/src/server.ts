@@ -1,6 +1,10 @@
 import { randomBytes } from "node:crypto";
 
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import {
+  createMcpHandler,
+  isLegacyRequest,
+  WebStandardStreamableHTTPServerTransport,
+} from "@modelcontextprotocol/server";
 import { createStarfetchMcpServer } from "@starfetch-js/mcp";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -100,6 +104,13 @@ export async function startStarfetchMcpApp(
   const exchanges = createExchangeRegistry((requestId) =>
     writeLog({ event: "mcp_cleanup_failed", requestId }),
   );
+  const requestLimits = {
+    maxRequestBodySize: hostedPolicyLimits.maxRequestBytes,
+  };
+  const modernMcp = createMcpHandler(createMcpServer, {
+    ...requestLimits,
+    legacy: "reject",
+  });
   const app = new Hono();
   let accepting = true;
 
@@ -151,6 +162,8 @@ export async function startStarfetchMcpApp(
         "Content-Type",
         "MCP-Protocol-Version",
         "MCP-Session-Id",
+        "Mcp-Method",
+        "Mcp-Name",
         "Last-Event-ID",
         "X-Request-Id",
       ],
@@ -190,17 +203,37 @@ export async function startStarfetchMcpApp(
       return context.json({ error: "Server is shutting down" }, 503);
     }
 
+    const request = context.req.raw;
+    const requestId = context.get("requestId");
+    if (!(await isLegacyRequest(request, undefined, requestLimits))) {
+      const controller = new AbortController();
+      const exchange = exchanges.track(
+        { close: async () => controller.abort() },
+        request.signal,
+        requestId,
+      );
+      try {
+        const response = await modernMcp.fetch(
+          new Request(request, {
+            signal: AbortSignal.any([request.signal, controller.signal]),
+          }),
+        );
+        return await exchange.ownResponse(response);
+      } catch (error) {
+        await exchange.close();
+        throw error;
+      }
+    }
+
     const mcpServer = createMcpServer();
-    const transport = new WebStandardStreamableHTTPServerTransport({});
-    const exchange = exchanges.track(
-      mcpServer,
-      context.req.raw.signal,
-      context.get("requestId"),
+    const transport = new WebStandardStreamableHTTPServerTransport(
+      requestLimits,
     );
+    const exchange = exchanges.track(mcpServer, request.signal, requestId);
 
     try {
       await mcpServer.connect(transport);
-      const response = await transport.handleRequest(context.req.raw);
+      const response = await transport.handleRequest(request);
       return await exchange.ownResponse(response);
     } catch (error) {
       await exchange.close();
@@ -235,7 +268,11 @@ export async function startStarfetchMcpApp(
     origin,
     close() {
       accepting = false;
-      closePromise ??= closeApp(listener, exchanges, shutdownGraceMs);
+      closePromise ??= closeApp(listener, exchanges, shutdownGraceMs).finally(
+        () => {
+          void modernMcp.close();
+        },
+      );
       return closePromise;
     },
   };

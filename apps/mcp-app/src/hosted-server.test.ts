@@ -1,5 +1,4 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { createHostedStarfetchMcpServer } from "./hosted-server.js";
@@ -95,6 +94,53 @@ const expectedHostedToolAnnotations = {
 } as const;
 
 describe("hosted Starfetch MCP server", () => {
+  it("accepts a full table view and rejects arguments over the hosted element limit", async () => {
+    const server = createHostedStarfetchMcpServer();
+    const client = new Client({
+      name: "starfetch-input-limit-test",
+      version: "0.0.0",
+    });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const columns = Array.from({ length: 32 }, (_, index) => ({
+      key: `col${index}`,
+      label: `Column ${index}`,
+    }));
+    const row = Object.fromEntries(columns.map(({ key }) => [key, 1]));
+    const view = {
+      contractVersion: 1,
+      resultKind: "presets",
+      title: "Example table",
+      columns,
+      rows: Array.from({ length: 100 }, () => row),
+      source: { tool: "starfetch_list_presets" },
+      state: "populated",
+      clipping: { reasons: [], sourceRows: 100, sourceColumns: 32 },
+    };
+
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const accepted = await client.callTool({
+        name: "starfetch_render_table",
+        arguments: view,
+      });
+      expect(accepted.structuredContent).toEqual(view);
+
+      const rejected = await client.callTool({
+        name: "starfetch_render_table",
+        arguments: {
+          ...view,
+          extra: Array.from({ length: 8_193 }, () => null),
+        },
+      });
+      expect(rejected.isError).toBe(true);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("adds the portable table renderer and immutable widget resource", async () => {
     const widgetHtml = "<!doctype html><title>Starfetch results</title>";
     const tapFetch = vi.fn(async () =>

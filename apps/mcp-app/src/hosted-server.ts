@@ -57,7 +57,10 @@ export type HostedStarfetchMcpServerOptions = Readonly<{
 export function createHostedStarfetchMcpServer(
   options: HostedStarfetchMcpServerOptions = {},
 ): ReturnType<typeof createStarfetchMcpServer> {
-  const server = createStarfetchMcpServer(options.mcp);
+  const server = createStarfetchMcpServer({
+    ...options.mcp,
+    maxToolInputElements: hostedPolicyLimits.maxToolInputElements,
+  });
   const queryExecutionOptions = {
     ...options.mcp,
     policy: options.mcp?.policy ?? unrestrictedStarfetchMcpPolicy,
@@ -73,7 +76,7 @@ export function createHostedStarfetchMcpServer(
       : { domain: options.publicOrigin }),
     permissions: { clipboardWrite: {} },
     prefersBorder: false,
-  } as const;
+  };
 
   registerAppTool(
     server,
@@ -133,7 +136,7 @@ export function createHostedStarfetchMcpServer(
     async (input, extra) => {
       const result = await executeStarfetchTapQuery(
         input,
-        extra.signal,
+        extra.mcpReq.signal,
         queryExecutionOptions,
         hostedTableDefaultMaxrec,
       );

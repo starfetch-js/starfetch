@@ -68,9 +68,13 @@ Highest returned proper motions:
 ```
 
 The server exposes preset discovery, registry search, VOSI metadata inspection,
-bounded sync queries, and explicit async jobs. Its packaged prompts, resources,
-and optional skill guide metadata-first ADQL and failure-aware reporting; the
-server remains usable without installing that skill.
+bounded sync queries, and explicit async jobs. Clients with Skills over MCP
+can discover and load the packaged Starfetch skill through the same connection.
+Prompts, resources, and tool descriptions also provide metadata-first guidance.
+
+The server supports the `2025-11-25` and `2026-07-28` MCP protocol revisions.
+TypeScript consumers of `createStarfetchMcpServer()` receive a v2 `McpServer`
+from `@modelcontextprotocol/server`.
 
 Starfetch is for public TAP services. It does not accept credentials, execute
 shell commands, write local files, or provide authoritative astrophysical
