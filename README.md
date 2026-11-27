@@ -211,6 +211,36 @@ the service signing secret is unchanged. Remote deletion is marked destructive
 so MCP clients can obtain user approval. The stdio MCP server and CLI keep
 their existing job-reference behavior and do not advertise remote-only fields.
 
+### Use one query result in another query
+
+To join a public target list against another catalog in chat, submit the source
+query with `starfetch_tap_submit_job`, `requestFormat: "votable"`, and an explicit
+`maxrec`. Wait for `COMPLETED`. Pass the returned job URL to the destination
+query in `uploadFromJob` and refer to the table as `TAP_UPLOAD.targets`.
+For example, a destination call that counts the transferred rows takes:
+
+```json
+{
+  "service": "gaia",
+  "query": "SELECT COUNT(*) AS n FROM TAP_UPLOAD.targets",
+  "format": "json",
+  "maxrec": 1,
+  "uploadFromJob": {
+    "jobUrl": "https://source.example/tap/async/42",
+    "tableName": "targets"
+  }
+}
+```
+
+Replace the example URL with the source job URL. Hosted calls also require the
+source job's `jobCapability` inside `uploadFromJob`. Starfetch forwards the
+VOTable to the destination archive without putting intermediate rows in chat.
+The source table can use TABLEDATA, inline BINARY, or inline BINARY2.
+The destination must support inline uploads. Query, async submission, and the
+hosted interactive table accept this input. An expired job or a source result
+marked `OVERFLOW` fails the transfer. Hosted transfers share the existing
+1 MiB total inline-upload allowance.
+
 ## Why Starfetch?
 
 Starfetch is a useful middle layer when an agent needs live public catalog data

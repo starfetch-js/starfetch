@@ -1,7 +1,6 @@
 import { type McpServer } from "@modelcontextprotocol/server";
 import {
   tapRequestFormatForOutput,
-  type QueryOptions,
   type TapJobWaitOptions,
   type TapSyncFormat,
 } from "@starfetch-js/core";
@@ -11,6 +10,7 @@ import {
   hostedTapJobFetchInputSchema,
   hostedTapJobInputSchema,
   hostedTapJobSubmitDataSchema,
+  hostedTapJobSubmitInputSchema,
   hostedTapJobWaitInputSchema,
   tapJobDataSchema,
   tapJobDiagnosticsSchema,
@@ -24,17 +24,13 @@ import {
   tapJobWaitInputSchema,
   type HostedTapJobInput,
   type TapJobInput,
-  type TapJobSubmitInput,
   type TapJobWaitInput,
 } from "./schemas.js";
 import { runTool, success, targetDiagnostics } from "./results.js";
+import { prepareTapQueryOptions } from "./query-options.js";
 import { createTapQueryData } from "./query-result.js";
 import type { StarfetchMcpRuntimeOptions } from "./server.js";
-import {
-  createTapClient,
-  createTapJobClient,
-  createTapUploads,
-} from "./tap-client.js";
+import { createTapClient, createTapJobClient } from "./tap-client.js";
 import {
   destructiveNetworkAnnotations,
   readOnlyNetworkAnnotations,
@@ -50,7 +46,7 @@ const jobToolSurfaces = {
     fetchDescription:
       "Fetch a TAP async job result, passing the hosted jobCapability. JSON and JSONL conversion supports VOTable, CSV, and TSV rows.",
     submitDescription:
-      "Submit metadata-backed bounded ADQL as an explicit TAP async job when synchronous querying is insufficient. Preserve the exact query and returned jobCapability; use starfetch_tap_query for small work.",
+      "Submit metadata-backed bounded ADQL as an explicit TAP async job when the result will feed another tool through uploadFromJob or synchronous querying is insufficient. Preserve the exact query and returned jobCapability; use starfetch_tap_query for small work.",
     statusDescription:
       "Read the current phase and links for a TAP async job. Pass the jobCapability returned by hosted submission.",
     waitDescription:
@@ -61,7 +57,7 @@ const jobToolSurfaces = {
     fetchDescription:
       "Fetch a TAP async job result. JSON and JSONL conversion supports VOTable, CSV, and TSV rows.",
     submitDescription:
-      "Submit metadata-backed bounded ADQL as an explicit TAP async job when synchronous querying is insufficient. Preserve the exact query and use starfetch_tap_query for small work.",
+      "Submit metadata-backed bounded ADQL as an explicit TAP async job when the result will feed another tool through uploadFromJob or synchronous querying is insufficient. Preserve the exact query and use starfetch_tap_query for small work.",
     statusDescription: "Read the current phase and links for a TAP async job.",
     waitDescription:
       "Poll a TAP async job until completion, timeout, or terminal failure. This is an explicit wait and never starts a background job.",
@@ -78,7 +74,10 @@ export function registerJobTools(
     {
       annotations: writeNetworkAnnotations,
       description: surface.submitDescription,
-      inputSchema: tapJobSubmitInputSchema,
+      inputSchema:
+        options.policy.jobAccess === "capability"
+          ? hostedTapJobSubmitInputSchema
+          : tapJobSubmitInputSchema,
       outputSchema: z.object({
         data:
           options.policy.jobAccess === "capability"
@@ -91,17 +90,14 @@ export function registerJobTools(
     async (input, extra) =>
       runTool(async () => {
         const client = createTapClient(input, options);
-        const prepared = options.policy.prepareQuery({
-          fallbackMaxrec: defaultTapJobSubmitMaxrec,
-          incomingSignal: extra.mcpReq.signal,
-          requestedMaxrec: input.maxrec,
-          uploads: input.uploads,
-        });
-        const maxrec = prepared.maxrec;
-        const job = await client.jobs.submit(
-          input.query,
-          createTapJobSubmitOptions(input, maxrec, prepared.signal),
+        const prepared = await prepareTapQueryOptions(
+          input,
+          input.requestFormat,
+          defaultTapJobSubmitMaxrec,
+          extra.mcpReq.signal,
+          options,
         );
+        const job = await client.jobs.submit(input.query, prepared);
         const jobCapability = options.policy.issueJobCapability(job.url);
         const diagnostics: {
           effectiveMaxrec: number;
@@ -111,10 +107,10 @@ export function registerJobTools(
           target: ReturnType<typeof targetDiagnostics>;
           uploadCount: number;
         } = {
-          effectiveMaxrec: maxrec,
+          effectiveMaxrec: prepared.maxrec,
           query: input.query,
           target: targetDiagnostics(client.target),
-          uploadCount: input.uploads?.length ?? 0,
+          uploadCount: prepared.uploads?.length ?? 0,
         };
 
         if (input.requestFormat !== undefined) {
@@ -282,30 +278,6 @@ export function registerJobTools(
         });
       }),
   );
-}
-
-function createTapJobSubmitOptions(
-  input: TapJobSubmitInput,
-  maxrec: number,
-  signal: AbortSignal,
-): QueryOptions {
-  const queryOptions: QueryOptions = { maxrec, signal };
-
-  if (input.requestFormat !== undefined) {
-    queryOptions.format = input.requestFormat;
-  }
-
-  if (input.runId !== undefined) {
-    queryOptions.runId = input.runId;
-  }
-
-  const uploads = createTapUploads(input.uploads);
-
-  if (uploads !== undefined) {
-    queryOptions.uploads = uploads;
-  }
-
-  return queryOptions;
 }
 
 function createJobHandle(

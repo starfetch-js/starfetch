@@ -1,9 +1,6 @@
-import {
-  tapRequestFormatForOutput,
-  type QueryOptions,
-  type TapSyncFormat,
-} from "@starfetch-js/core";
+import { tapRequestFormatForOutput } from "@starfetch-js/core";
 
+import { prepareTapQueryOptions } from "./query-options.js";
 import { createTapQueryData } from "./query-result.js";
 import {
   runTool,
@@ -13,7 +10,7 @@ import {
 } from "./results.js";
 import type { TapQueryInput, TapQueryOutput } from "./schemas.js";
 import type { StarfetchMcpRuntimeOptions } from "./server.js";
-import { createTapClient, createTapUploads } from "./tap-client.js";
+import { createTapClient } from "./tap-client.js";
 
 export const DEFAULT_TAP_QUERY_MAXREC = 100;
 
@@ -28,45 +25,27 @@ export function executeStarfetchTapQuery(
     const client = createTapClient(input, options);
     const format = input.format;
     const requestFormat = tapRequestFormatForOutput(format);
-    const prepared = options.policy.prepareQuery({
+    const prepared = await prepareTapQueryOptions(
+      input,
+      requestFormat,
       fallbackMaxrec,
       incomingSignal,
-      requestedMaxrec: input.maxrec,
-      uploads: input.uploads,
-    });
-    const maxrec = prepared.maxrec;
-    const result = await client.query(
-      input.query,
-      createTapQueryOptions(input, requestFormat, maxrec, prepared.signal),
+      options,
     );
+    const result = await client.query(input.query, prepared);
     const data = await createTapQueryData(result, format);
 
     const diagnostics: TapQueryOutput["diagnostics"] = {
       durationMs: performance.now() - startedAt,
-      effectiveMaxrec: maxrec,
+      effectiveMaxrec: prepared.maxrec,
       format,
       requestFormat,
       query: input.query,
       target: targetDiagnostics(client.target),
-      uploadCount: input.uploads?.length ?? 0,
+      uploadCount: prepared.uploads?.length ?? 0,
       ...(input.runId === undefined ? {} : { runId: input.runId }),
     };
 
     return success(data, diagnostics);
   });
-}
-
-function createTapQueryOptions(
-  input: TapQueryInput,
-  format: TapSyncFormat,
-  maxrec: number,
-  signal: AbortSignal,
-): QueryOptions {
-  const queryOptions: QueryOptions = { format, maxrec, signal };
-
-  if (input.runId !== undefined) queryOptions.runId = input.runId;
-  const uploads = createTapUploads(input.uploads);
-  if (uploads !== undefined) queryOptions.uploads = uploads;
-
-  return queryOptions;
 }
