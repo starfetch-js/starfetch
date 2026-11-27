@@ -8,6 +8,7 @@ import {
   readCoreFixture,
 } from "../../core/test/mock-tap-metadata.js";
 import { createMockTapSyncFetch } from "../../core/test/mock-tap-sync.js";
+import { createMockTapAsyncFetch } from "../../core/test/mock-tap-async.js";
 import {
   createStarfetchMcpServer,
   mcpServerName,
@@ -474,6 +475,38 @@ describe("createStarfetchMcpServer", () => {
         "votable",
       );
     }
+  });
+
+  it("uploads a completed source job to a different TAP service without returning its rows", async () => {
+    const source = createMockTapAsyncFetch({ phase: "COMPLETED" });
+    const destination = createMockTapSyncFetch(
+      new Response("count\n2\n", { headers: { "content-type": "text/csv" } }),
+    );
+    const fetch: typeof globalThis.fetch = (input, init) =>
+      new URL(new Request(input).url).hostname === "source.test"
+        ? source(input, init)
+        : destination(input, init);
+    await withMcpClient({ fetch }, async (client) => {
+      const result = await client.callTool({
+        name: "starfetch_tap_query",
+        arguments: {
+          url: "https://destination.test/tap",
+          query: "SELECT COUNT(*) AS count FROM TAP_UPLOAD.targets",
+          format: "csv",
+          uploadFromJob: {
+            jobUrl: "https://source.test/tap/async/job-123",
+            tableName: "targets",
+          },
+        },
+      });
+      expect(result.structuredContent).toMatchObject({
+        data: { content: "count\n2\n" },
+        diagnostics: { uploadCount: 1 },
+      });
+      expect(destination.requests[0]?.formData.get("starfetch_upload_0")).toBe(
+        await readCoreFixture("uws-result.votable.xml"),
+      );
+    });
   });
 
   it("forwards explicit TAP query parameters and uploads", async () => {

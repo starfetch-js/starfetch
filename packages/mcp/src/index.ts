@@ -13,6 +13,7 @@ export {
 } from "./server.js";
 export { unrestrictedStarfetchMcpPolicy } from "./policy.js";
 export {
+  hostedJobUploadSchema,
   tapQueryInputShape,
   tapQueryInputSchema,
   tapTargetInputShape,

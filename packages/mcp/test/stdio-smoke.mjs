@@ -70,11 +70,29 @@ try {
   );
   assert.deepEqual(
     Object.keys(inputProperties(tools, "starfetch_tap_query")).sort(),
-    ["format", "maxrec", "query", "runId", "service", "uploads", "url"],
+    [
+      "format",
+      "maxrec",
+      "query",
+      "runId",
+      "service",
+      "uploadFromJob",
+      "uploads",
+      "url",
+    ],
   );
   assert.deepEqual(
     Object.keys(inputProperties(tools, "starfetch_tap_submit_job")).sort(),
-    ["maxrec", "query", "requestFormat", "runId", "service", "uploads", "url"],
+    [
+      "maxrec",
+      "query",
+      "requestFormat",
+      "runId",
+      "service",
+      "uploadFromJob",
+      "uploads",
+      "url",
+    ],
   );
   assert.deepEqual(
     Object.keys(inputProperties(tools, "starfetch_tap_job_status")).sort(),

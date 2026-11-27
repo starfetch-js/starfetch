@@ -21,6 +21,7 @@ import {
   targetDiagnosticsSchema,
   targetInputSchema,
   tapQueryInputSchema,
+  hostedTapQueryInputSchema,
   tapQueryOutputSchema,
 } from "./schemas.js";
 import {
@@ -240,7 +241,10 @@ function registerQueryTools(
       },
       description:
         "Run a small bounded synchronous TAP ADQL query after inspecting the exact table and columns. Use TOP in ADQL and/or maxrec, and treat tool errors as failures rather than empty scientific results.",
-      inputSchema: tapQueryInputSchema,
+      inputSchema:
+        options.policy.jobAccess === "capability"
+          ? hostedTapQueryInputSchema
+          : tapQueryInputSchema,
       outputSchema: tapQueryOutputSchema,
       title: "Run bounded TAP query",
     },

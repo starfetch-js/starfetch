@@ -41,6 +41,18 @@ Prefer JSON or JSONL for agent-readable rows and VOTable when VO-native
 metadata matters. Do not infer scientific conclusions beyond the returned
 catalog fields and the user's stated assumptions.
 
+## Carry a target list into a second query
+
+Inspect both services and choose the source columns and row limit. Submit the
+source query with `starfetch_tap_submit_job` and `requestFormat: "votable"`.
+Wait for `COMPLETED`. Pass `uploadFromJob: { jobUrl, tableName: "targets" }`
+to the destination query, using the source submission's `data.url` for
+`jobUrl`. Include the source `jobCapability` there when hosted. Query
+`TAP_UPLOAD.targets` using the projected source column names. Starfetch sends
+the source table directly to the chosen destination. The agent needs only the
+job reference. Report both queries and their limits. If the source reports
+overflow, narrow it or rerun with a sufficient limit.
+
 ## References
 
 - Read `references/tap-metadata.md` before selecting tables or columns.

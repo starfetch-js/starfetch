@@ -74,6 +74,25 @@ const uploadsSchema = z
     "TAP uploads forwarded to the service; local file paths are not supported.",
   );
 
+const jobUploadSchema = z.object({
+  jobUrl: textSchema.describe(
+    "Absolute source job URL returned by starfetch_tap_submit_job.",
+  ),
+  tableName: textSchema.describe("Destination name in TAP_UPLOAD."),
+});
+
+const jobUploadDescription =
+  "Upload the complete VOTable from a completed source job directly to this TAP service. Submit the source with requestFormat=votable and keep its job URL.";
+
+export const hostedJobUploadSchema = jobUploadSchema
+  .extend({
+    jobCapability: textSchema.describe(
+      "Capability returned with the source job.",
+    ),
+  })
+  .optional()
+  .describe(jobUploadDescription);
+
 export const tapQueryInputShape = {
   format: z.enum(tapOutputFormats).describe("MCP result output format."),
   maxrec: maxrecSchema.optional(),
@@ -82,6 +101,7 @@ export const tapQueryInputShape = {
   ),
   runId: optionalTextSchema.describe("Optional TAP RUNID request value."),
   uploads: uploadsSchema,
+  uploadFromJob: jobUploadSchema.optional().describe(jobUploadDescription),
 };
 
 export const tapQueryInputSchema = z
@@ -93,7 +113,12 @@ export const tapQueryInputSchema = z
     message: "Specify service or url.",
     path: ["service"],
   });
-export type TapQueryInput = z.infer<typeof tapQueryInputSchema>;
+export const hostedTapQueryInputSchema = tapQueryInputSchema.safeExtend({
+  uploadFromJob: hostedJobUploadSchema,
+});
+export type TapQueryInput =
+  | z.infer<typeof tapQueryInputSchema>
+  | z.infer<typeof hostedTapQueryInputSchema>;
 export type TapUploadsInput = z.infer<typeof uploadsSchema>;
 
 const waitMsSchema = z
@@ -128,12 +153,17 @@ export const tapJobSubmitInputSchema = z
       .describe("TAP RESPONSEFORMAT request value for the async job result."),
     runId: optionalTextSchema.describe("Optional TAP RUNID request value."),
     uploads: uploadsSchema,
+    uploadFromJob: tapQueryInputShape.uploadFromJob,
   })
   .refine(hasTapTarget, {
     message: "Specify service or url.",
     path: ["service"],
   });
-export type TapJobSubmitInput = z.infer<typeof tapJobSubmitInputSchema>;
+export const hostedTapJobSubmitInputSchema = tapJobSubmitInputSchema.safeExtend(
+  {
+    uploadFromJob: hostedJobUploadSchema,
+  },
+);
 
 export const tapJobInputSchema = z
   .object(tapJobTargetFields)

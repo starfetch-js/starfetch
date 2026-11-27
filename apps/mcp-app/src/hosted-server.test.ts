@@ -1,8 +1,13 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { describe, expect, it, vi } from "vitest";
 
+import { createMockTapAsyncFetch } from "../../../packages/core/test/mock-tap-async.js";
+import { createMockTapSyncFetch } from "../../../packages/core/test/mock-tap-sync.js";
 import { createHostedStarfetchMcpServer } from "./hosted-server.js";
-import { createHostedStarfetchMcpPolicy } from "./hosted-policy.js";
+import {
+  createHostedStarfetchMcpPolicy,
+  hostedPolicyLimits,
+} from "./hosted-policy.js";
 import { createJobCapabilityIssuer } from "./job-capability.js";
 import { createStarfetchTableView } from "./presentation.js";
 
@@ -94,6 +99,86 @@ const expectedHostedToolAnnotations = {
 } as const;
 
 describe("hosted Starfetch MCP server", () => {
+  it("authorizes the source job and counts its bytes toward the hosted upload limit", async () => {
+    const source = createMockTapAsyncFetch({ phase: "COMPLETED" });
+    const destination = createMockTapSyncFetch(new Response(createVotable(1)));
+    const jobCapabilities = createJobCapabilityIssuer({
+      secret: new Uint8Array(32).fill(4),
+    });
+    const server = createHostedStarfetchMcpServer({
+      mcp: {
+        policy: createHostedStarfetchMcpPolicy({ jobCapabilities }),
+        fetch: (input, init) =>
+          new URL(new Request(input).url).hostname === "source.test"
+            ? source(input, init)
+            : destination(input, init),
+      },
+    });
+    const client = new Client({ name: "job-upload-test", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const jobUrl = "https://source.test/tap/async/job-123";
+    const query = {
+      url: "https://destination.test/tap",
+      query: "SELECT TOP 1 * FROM TAP_UPLOAD.targets",
+    };
+    const uploadFromJob = {
+      jobUrl,
+      tableName: "targets",
+      jobCapability: jobCapabilities.issue({ jobUrl, operations: ["fetch"] }),
+    };
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const rejected = await client.callTool({
+        name: "starfetch_query_table",
+        arguments: {
+          ...query,
+          uploadFromJob: { ...uploadFromJob, jobCapability: "invalid" },
+        },
+      });
+      expect(rejected.isError).toBe(true);
+      expect(source.requests).toHaveLength(0);
+      const oversized = await client.callTool({
+        name: "starfetch_tap_query",
+        arguments: {
+          ...query,
+          format: "json",
+          uploadFromJob,
+          uploads: [
+            {
+              tableName: "other",
+              votable:
+                "<V>" +
+                " ".repeat(hostedPolicyLimits.maxInlineUploadBytes - 7) +
+                "</V>",
+            },
+          ],
+        },
+      });
+      expect(JSON.stringify(oversized.content)).toContain(
+        "INLINE_UPLOAD_TOO_LARGE",
+      );
+      expect(destination.allRequests).toHaveLength(0);
+      const accepted = await client.callTool({
+        name: "starfetch_query_table",
+        arguments: { ...query, uploadFromJob },
+      });
+      expect(accepted.structuredContent).toMatchObject({
+        rows: [{ source_id: "1" }],
+      });
+      expect(
+        destination.requests[0]?.formData.get("starfetch_upload_0"),
+      ).toContain("<VOTABLE");
+      expect(destination.requests[0]?.body).not.toContain(
+        uploadFromJob.jobCapability,
+      );
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("accepts a full table view and rejects arguments over the hosted element limit", async () => {
     const server = createHostedStarfetchMcpServer();
     const client = new Client({
@@ -121,6 +206,16 @@ describe("hosted Starfetch MCP server", () => {
     try {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
+      const tools = await client.listTools();
+      const widget = tools.tools.find(
+        (tool) => tool.name === "starfetch_query_table",
+      );
+      expect(widget?.inputSchema).toHaveProperty(
+        "properties.uploadFromJob.properties.jobUrl",
+      );
+      expect(widget?.inputSchema).not.toHaveProperty(
+        "properties.uploadFromJob.properties.jobCapability",
+      );
       const accepted = await client.callTool({
         name: "starfetch_render_table",
         arguments: view,

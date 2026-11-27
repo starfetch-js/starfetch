@@ -8,6 +8,7 @@ import {
 import {
   createStarfetchMcpServer,
   executeStarfetchTapQuery,
+  hostedJobUploadSchema,
   tapQueryInputShape,
   tapTargetInputShape,
   unrestrictedStarfetchMcpPolicy,
@@ -31,6 +32,7 @@ const hostedTableQueryInputSchema = z
   .object({
     ...tapTargetInputShape,
     query: tapQueryInputShape.query,
+    uploadFromJob: tapQueryInputShape.uploadFromJob,
     runId: tapQueryInputShape.runId,
     format: z.literal("json").default("json"),
     maxrec: z
@@ -118,7 +120,12 @@ export function createHostedStarfetchMcpServer(
       title: "Query an interactive Starfetch table",
       description:
         "Run a metadata-backed synchronous TAP ADQL query and show up to 10,000 rows in an interactive table. Prefer this over starfetch_tap_query followed by starfetch_render_table when the user wants to inspect scientific rows. The model receives a small preview; the widget privately receives the loaded table.",
-      inputSchema: hostedTableQueryInputSchema,
+      inputSchema:
+        queryExecutionOptions.policy.jobAccess === "capability"
+          ? hostedTableQueryInputSchema.safeExtend({
+              uploadFromJob: hostedJobUploadSchema,
+            })
+          : hostedTableQueryInputSchema,
       outputSchema: starfetchTableViewV1Schema,
       annotations: {
         destructiveHint: false,

@@ -1,7 +1,10 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { describe, expect, it } from "vitest";
 
-import { createMockTapAsyncFetch } from "../../core/test/mock-tap-async.js";
+import {
+  createMockTapAsyncFetch,
+  readCoreFixture,
+} from "../../core/test/mock-tap-async.js";
 import type { JobCapabilityOperation, StarfetchMcpPolicy } from "./policy.js";
 import {
   createStarfetchMcpServer,
@@ -109,6 +112,79 @@ describe("Starfetch MCP TAP async job tools", () => {
     expect(mockFetch.requests[0]?.params.has("RESPONSEFORMAT")).toBe(false);
     expect(mockFetch.requests[0]?.params.get("MAXREC")).toBe("100");
   });
+
+  it("chains a completed VOTable into another async job", async () => {
+    const mockFetch = createMockTapAsyncFetch({
+      phase: "COMPLETED",
+      resultFixture: "votable-binary2-success.xml",
+    });
+    await withMcpClient({ fetch: mockFetch }, async (client) => {
+      const result = await client.callTool({
+        name: "starfetch_tap_submit_job",
+        arguments: {
+          url: "https://destination.test/tap",
+          query: "SELECT TOP 2 * FROM TAP_UPLOAD.targets",
+          uploadFromJob: {
+            jobUrl: "https://source.test/tap/async/job-123",
+            tableName: "targets",
+          },
+        },
+      });
+      expect(result.structuredContent).toMatchObject({
+        diagnostics: { uploadCount: 1 },
+      });
+      const submit = mockFetch.requests.find(
+        (request) =>
+          request.url.hostname === "destination.test" &&
+          request.formData.has("UPLOAD"),
+      );
+      expect(submit?.formData.get("starfetch_upload_0")).toBe(
+        await readCoreFixture("votable-binary2-success.xml"),
+      );
+    });
+  });
+
+  it.each([
+    ["EXECUTING", "application/xml", "", "EXECUTING"],
+    ["COMPLETED", "text/csv", "id\n1\n", "requestFormat=votable"],
+    [
+      "COMPLETED",
+      "application/xml",
+      '<VOTABLE><RESOURCE><INFO name="QUERY_STATUS" value="OVERFLOW"/></RESOURCE></VOTABLE>',
+      "OVERFLOW",
+    ],
+  ] as const)(
+    "reports unusable source results (%s, %s) before submission",
+    async (phase, contentType, body, message) => {
+      const source = createMockTapAsyncFetch({ phase });
+      const fetch: typeof globalThis.fetch = (input, init) =>
+        new Request(input).url.endsWith("/results/result")
+          ? Promise.resolve(
+              new Response(body, { headers: { "content-type": contentType } }),
+            )
+          : source(input, init);
+      await withMcpClient({ fetch }, async (client) => {
+        const result = await client.callTool({
+          name: "starfetch_tap_submit_job",
+          arguments: {
+            url: "https://destination.test/tap",
+            query: "SELECT TOP 2 * FROM TAP_UPLOAD.targets",
+            uploadFromJob: {
+              jobUrl: "https://source.test/tap/async/job-123",
+              tableName: "targets",
+            },
+          },
+        });
+        expect(result.isError).toBe(true);
+        expect(firstTextContent(result)).toContain(message);
+        expect(
+          source.requests.every(
+            (request) => request.url.hostname === "source.test",
+          ),
+        ).toBe(true);
+      });
+    },
+  );
 
   it("issues and requires opaque job capabilities when hosted policy enables them", async () => {
     const mockFetch = createMockTapAsyncFetch({ phase: "COMPLETED" });

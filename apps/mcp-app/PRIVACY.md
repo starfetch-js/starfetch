@@ -81,7 +81,9 @@ request logs, but the application does not configure a custom trace exporter.
 For network tools, Starfetch sends the selected public TAP service only the
 information needed for that operation. Depending on the tool, this can include
 metadata paths, an ADQL query, `MAXREC`, output format, run identifier, inline
-VOTable content, or an asynchronous-job URL.
+VOTable content, or an asynchronous-job URL. With `uploadFromJob`, Starfetch
+reads the referenced source result and sends the VOTable to the selected
+destination TAP service. The source job capability stays within Starfetch.
 
 The TAP service sees the remote service's network address and the technical
 `starfetch-hosted/0.0.0` user-agent value. Starfetch does not forward the
