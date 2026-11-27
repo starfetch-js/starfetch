@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.5.0](https://github.com/starfetch-js/starfetch/compare/v0.4.0...v0.5.0) (2026-11-27)
+
+**Note:** Version bump only for package @starfetch-js/core
+
 # [0.4.0](https://github.com/starfetch-js/starfetch/compare/v0.3.0...v0.4.0) (2026-11-25)
 
 ### Bug Fixes

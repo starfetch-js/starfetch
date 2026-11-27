@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.5.0](https://github.com/starfetch-js/starfetch/compare/v0.4.0...v0.5.0) (2026-11-27)
+
+### Features
+
+- **mcp:** upload completed TAP job results to follow-up queries ([#10](https://github.com/starfetch-js/starfetch/issues/10)) ([0315a25](https://github.com/starfetch-js/starfetch/commit/0315a252343ce986d31072f066014495f5b19f66))
+
 # [0.4.0](https://github.com/starfetch-js/starfetch/compare/v0.3.0...v0.4.0) (2026-11-25)
 
 **Note:** Version bump only for package @starfetch-js/skill
