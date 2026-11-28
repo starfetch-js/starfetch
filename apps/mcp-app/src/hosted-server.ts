@@ -32,6 +32,7 @@ const hostedTableQueryInputSchema = z
   .object({
     ...tapTargetInputShape,
     query: tapQueryInputShape.query,
+    targetList: tapQueryInputShape.targetList,
     uploadFromJob: tapQueryInputShape.uploadFromJob,
     runId: tapQueryInputShape.runId,
     format: z.literal("json").default("json"),

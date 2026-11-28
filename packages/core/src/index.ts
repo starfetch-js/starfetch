@@ -47,6 +47,8 @@ export {
   tapSyncFormats,
 } from "./tap-format.js";
 export { formatTapResult } from "./tap-result-output.js";
+export { prepareTargetList } from "./target-list.js";
+export { measurementSearchQuery } from "./measurement-search.js";
 export { parseVotable } from "./votable.js";
 export { defaultTapPresets } from "./tap-presets.js";
 export { defaultRegistryUrl, registry } from "./registry.js";

@@ -191,6 +191,7 @@ starfetch_tap_availability
 starfetch_tap_capabilities
 starfetch_tap_tables
 starfetch_tap_columns
+starfetch_tap_find_columns
 starfetch_tap_query
 starfetch_tap_submit_job
 starfetch_tap_job_status
@@ -210,6 +211,38 @@ or delete call. The capability remains usable while the remote job exists and
 the service signing secret is unchanged. Remote deletion is marked destructive
 so MCP clients can obtain user approval. The stdio MCP server and CLI keep
 their existing job-reference behavior and do not advertise remote-only fields.
+
+### Find a measurement or upload your own targets
+
+Use `starfetch_tap_find_columns` with a service and a term such as
+`radial velocity` or `spect.dopplerVeloc`. It searches column names, descriptions
+and UCDs in `TAP_SCHEMA.columns`, returning the table, column, unit, UCD
+and description. Inspect the candidate table to distinguish a measured value
+from its uncertainty. Results are bounded by `maxrec`. Use the published spelling for mixed-case UCDs.
+
+To match a pasted CSV against an inspected catalog, pass `targetList` to
+`starfetch_tap_query`, `starfetch_tap_submit_job`, or the hosted
+`starfetch_query_table`. This query matches three input rows against Gaia DR3.
+
+```json
+{
+  "url": "https://gaia.aip.de/tap",
+  "format": "json",
+  "targetList": {
+    "csv": "source_id\n5853498713190525696\n5853498713190525696\n-1",
+    "idType": "long"
+  },
+  "query": "SELECT t.input_row, t.target_id, t.duplicate_of, g.source_id AS matched_id, g.radial_velocity FROM TAP_UPLOAD.targets AS t LEFT OUTER JOIN gaiadr3.gaia_source AS g ON g.source_id = t.target_id ORDER BY t.input_row"
+}
+```
+
+Use one header followed by up to 10,000 identifiers, one per record. Choose `long` for signed 64-bit
+integer keys and `text` for string keys (including leading zeros). The service
+must accept inline uploads. Joining from the input to a unique catalog key
+preserves every input row. A null matched ID means no match. A null velocity
+with a populated matched ID means that source has no published velocity.
+Repeated IDs point to their first input row in `duplicate_of`.
+Check for overflow before interpreting missing rows.
 
 ### Use one query result in another query
 

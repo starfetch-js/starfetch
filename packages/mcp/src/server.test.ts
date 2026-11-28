@@ -52,6 +52,7 @@ describe("createStarfetchMcpServer", () => {
         "starfetch_tap_availability",
         "starfetch_tap_capabilities",
         "starfetch_tap_columns",
+        "starfetch_tap_find_columns",
         "starfetch_tap_job_delete",
         "starfetch_tap_job_fetch",
         "starfetch_tap_job_status",
@@ -506,6 +507,58 @@ describe("createStarfetchMcpServer", () => {
       expect(destination.requests[0]?.formData.get("starfetch_upload_0")).toBe(
         await readCoreFixture("uws-result.votable.xml"),
       );
+    });
+  });
+
+  it("searches column metadata on the selected service with a bounded query", async () => {
+    const mockFetch = createMockTapSyncFetch(
+      new Response(
+        "table_name,column_name,unit,ucd,description\nsample,rv,km/s,spect.dopplerVeloc,Radial velocity",
+        { headers: { "content-type": "text/csv" } },
+      ),
+    );
+    await withMcpClient({ fetch: mockFetch }, async (client) => {
+      const result = await client.callTool({
+        name: "starfetch_tap_find_columns",
+        arguments: {
+          url: "https://example.test/tap",
+          term: "star's velocity",
+          maxrec: 4,
+        },
+      });
+      expect(result.structuredContent).toMatchObject({
+        diagnostics: { effectiveMaxrec: 4 },
+        data: { content: expect.stringContaining("km/s") },
+      });
+      const query = mockFetch.requests[0]?.params.get("QUERY");
+      expect(query).toContain("FROM TAP_SCHEMA.columns");
+      expect(query).toContain("ucd LIKE '%STAR''S VELOCITY%'");
+    });
+  });
+
+  it("uploads CSV targets inline and covers the whole list by default", async () => {
+    const mockFetch = createMockTapSyncFetch(
+      new Response("n\n101\n", { headers: { "content-type": "text/csv" } }),
+    );
+    await withMcpClient({ fetch: mockFetch }, async (client) => {
+      const result = await client.callTool({
+        name: "starfetch_tap_query",
+        arguments: {
+          url: "https://example.test/tap",
+          format: "csv",
+          query: "SELECT COUNT(*) AS n FROM TAP_UPLOAD.targets",
+          targetList: {
+            csv: "id\n" + "5853498713190525696\n".repeat(101),
+            idType: "long",
+          },
+        },
+      });
+      expect(result.structuredContent).toMatchObject({
+        diagnostics: { effectiveMaxrec: 101, uploadCount: 1 },
+      });
+      expect(
+        mockFetch.requests[0]?.formData.get("starfetch_upload_0"),
+      ).toContain("<TD>101</TD><TD>5853498713190525696</TD><TD>1</TD>");
     });
   });
 
