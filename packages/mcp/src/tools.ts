@@ -2,6 +2,7 @@ import { type McpServer } from "@modelcontextprotocol/server";
 import {
   defaultRegistryUrl,
   defaultTapPresets,
+  measurementSearchQuery,
   registry,
   type TapRegistryOptions,
   type TapRegistrySearchOptions,
@@ -198,6 +199,34 @@ function registerMetadataTools(
           target: targetDiagnostics(client.target),
         });
       }),
+  );
+
+  server.registerTool(
+    "starfetch_tap_find_columns",
+    {
+      annotations: readOnlyNetworkAnnotations,
+      title: "Find catalogs by measurement",
+      description:
+        "Search TAP_SCHEMA.columns at one selected archive for a measurement phrase or a UCD fragment (e.g. spect.dopplerVeloc, including uncertainty descriptors). Returns candidate table and column names, units, UCDs and descriptions. Inspect candidate tables before querying data.",
+      inputSchema: targetInputSchema.safeExtend({
+        term: z
+          .string()
+          .trim()
+          .min(1)
+          .max(160)
+          .describe(
+            "Substring (also tries common capitalization variants) of a name, description or UCD. % and _ are ADQL LIKE wildcards.",
+          ),
+        maxrec: z.number().int().positive().max(1000).default(100),
+      }),
+      outputSchema: tapQueryOutputSchema,
+    },
+    (input, extra) =>
+      executeStarfetchTapQuery(
+        { ...input, query: measurementSearchQuery(input.term), format: "json" },
+        extra.mcpReq.signal,
+        options,
+      ),
   );
 
   server.registerTool(

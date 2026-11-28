@@ -1,5 +1,6 @@
 import {
   TapUploadError,
+  prepareTargetList,
   type QueryOptions,
   type TapSyncFormat,
 } from "@starfetch-js/core";
@@ -9,13 +10,33 @@ import type { StarfetchMcpRuntimeOptions } from "./server.js";
 import { createTapJobClient, createTapUploads } from "./tap-client.js";
 
 export async function prepareTapQueryOptions(
-  input: Pick<TapQueryInput, "maxrec" | "runId" | "uploads" | "uploadFromJob">,
+  input: Pick<
+    TapQueryInput,
+    "maxrec" | "runId" | "uploads" | "uploadFromJob" | "targetList"
+  >,
   format: TapSyncFormat | undefined,
   fallbackMaxrec: number,
   incomingSignal: AbortSignal,
   options: StarfetchMcpRuntimeOptions,
 ): Promise<QueryOptions & { maxrec: number }> {
   let uploads = input.uploads;
+  if (input.targetList) {
+    if (
+      [...(uploads ?? []), input.uploadFromJob].some(
+        (upload) => upload?.tableName.toLowerCase() === "targets",
+      )
+    ) {
+      throw new TapUploadError(
+        "The CSV target list already uses TAP_UPLOAD.targets.",
+      );
+    }
+    const { votable, rowCount } = prepareTargetList(
+      input.targetList.csv,
+      input.targetList.idType,
+    );
+    fallbackMaxrec = Math.max(fallbackMaxrec, rowCount);
+    uploads = [...(uploads ?? []), { tableName: "targets", votable }];
+  }
   let signal = incomingSignal;
   const source = input.uploadFromJob;
   if (source !== undefined) {

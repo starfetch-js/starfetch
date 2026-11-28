@@ -100,6 +100,25 @@ export const tapQueryInputShape = {
     "Exact metadata-backed ADQL query text. Use TOP for a query-level bound; do not use LIMIT.",
   ),
   runId: optionalTextSchema.describe("Optional TAP RUNID request value."),
+  targetList: z
+    .object({
+      csv: z
+        .string()
+        .min(1)
+        .max(1024 * 1024)
+        .describe(
+          "One CSV header followed by up to 10,000 identifiers, one per record.",
+        ),
+      idType: z
+        .enum(["text", "long"])
+        .describe(
+          "Use long for integer catalog keys, text for string identifiers including leading zeros.",
+        ),
+    })
+    .optional()
+    .describe(
+      "Send identifiers to the selected service as TAP_UPLOAD.targets with target_id, 1-based input_row, and duplicate_of (first row or null). LEFT OUTER JOIN from targets to a unique archive key and ORDER BY input_row to retain duplicates and unmatched targets. Set maxrec to cover the list.",
+    ),
   uploads: uploadsSchema,
   uploadFromJob: jobUploadSchema.optional().describe(jobUploadDescription),
 };
@@ -152,6 +171,7 @@ export const tapJobSubmitInputSchema = z
       .optional()
       .describe("TAP RESPONSEFORMAT request value for the async job result."),
     runId: optionalTextSchema.describe("Optional TAP RUNID request value."),
+    targetList: tapQueryInputShape.targetList,
     uploads: uploadsSchema,
     uploadFromJob: tapQueryInputShape.uploadFromJob,
   })

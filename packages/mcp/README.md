@@ -68,7 +68,7 @@ Highest returned proper motions:
 ```
 
 The server exposes preset discovery, registry search, VOSI metadata inspection,
-bounded sync queries, and explicit async jobs. Pass a completed VOTable job to
+measurement searches across archive columns, bounded sync queries, and explicit async jobs. Pass a single-column CSV in `targetList` to match your own identifiers against a catalog. Pass a completed VOTable job to
 a destination query with `uploadFromJob` to join catalogs in chat. Clients with Skills over MCP
 can discover and load the packaged Starfetch skill through the same connection.
 Prompts, resources, and tool descriptions also provide metadata-first guidance.

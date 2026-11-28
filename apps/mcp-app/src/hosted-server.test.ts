@@ -54,6 +54,13 @@ const expectedHostedToolAnnotations = {
     openWorldHint: true,
     readOnlyHint: true,
   },
+
+  starfetch_tap_find_columns: {
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   starfetch_tap_job_delete: {
     destructiveHint: true,
     idempotentHint: false,
@@ -269,7 +276,7 @@ describe("hosted Starfetch MCP server", () => {
       await client.connect(clientTransport);
 
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(14);
+      expect(tools.tools).toHaveLength(15);
       expect(
         Object.fromEntries(
           tools.tools.map((tool) => [tool.name, tool.annotations]),
